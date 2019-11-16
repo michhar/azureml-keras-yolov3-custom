@@ -62,7 +62,7 @@ def main():
 
     # # Use an AML Data Store for training data
     ds = Datastore.register_azure_blob_container(workspace=ws, 
-        datastore_name='azuremlinput3', 
+        datastore_name='azuremlinput', 
         container_name=os.getenv('STORAGE_CONTAINER_NAME_TRAINDATA', ''),
         account_name=os.getenv('STORAGE_ACCOUNT_NAME', ''), 
         account_key=os.getenv('STORAGE_ACCOUNT_KEY', ''),
@@ -74,11 +74,11 @@ def main():
         #   datastore to the compute target in next step (linking 
         #   to Blob Storage)
         '--data_dir': ds.as_mount(),
-        '--model': 'yolov3-custom-base4truck.h5',
+        '--model': 'yolov3-custom-base.h5',
         '--gpu_num': 1,
-        '--annot_path': 'train_truck.txt',
-        '--class_path': 'truck_custom_classes.txt',
-        '--anchors_path': 'truck_custom_anchors.txt'
+        '--annot_path': 'train.txt',
+        '--class_path': 'custom_classes1.txt',
+        '--anchors_path': 'custom_anchors.txt'
     }
 
     # Instantiate PyTorch estimator with upload of final model to

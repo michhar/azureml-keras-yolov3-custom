@@ -1,3 +1,11 @@
+"""
+Upload data to blob storage
+
+Make sure to set the environment variables before running:
+STORAGE_ACCOUNT_NAME
+STORAGE_CONTAINER_NAME_TRAINDATA
+STORAGE_ACCOUNT_KEY
+"""
 import os
 from azure.storage.blob import BlockBlobService, PublicAccess
 import argparse
@@ -8,19 +16,20 @@ def arg_parse():
     Parse arguments
     """
     parser = argparse.ArgumentParser(description='This script is for uploading a directory to Azure Blob Storage.')
-    parser.add_argument("--container", dest='container', help="Blob storage container name", type=str)
-    parser.add_argument("--account", dest='account', help="Storage account name", type=str)
-    parser.add_argument("--key", dest='key', help="Storage account key", type=str)
     parser.add_argument("--dir", dest='directory', help="The directory to upload")
     return parser.parse_args()
 
 args = arg_parse()
 
+ACCOUNT=os.getenv("STORAGE_ACCOUNT_NAME", "")
+CONTAINER=os.getenv("STORAGE_CONTAINER_NAME_TRAINDATA", "")
+KEY=os.getenv("STORAGE_ACCOUNT_KEY", "")
+
 # Create the BlockBlockService that is used to call the Blob service for the storage account
-block_blob_service = BlockBlobService(account_name=args.account, account_key=args.key) 
+block_blob_service = BlockBlobService(account_name=ACCOUNT, account_key=KEY) 
 
 # Create a container
-container_name = args.container
+container_name = CONTAINER
 block_blob_service.create_container(container_name) 
 
 # Set the permission so the blobs are public.

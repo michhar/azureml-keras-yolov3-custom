@@ -88,7 +88,9 @@ usage: yolo_video.py [-h] [--model_path MODEL_PATH]
 
 For examples, see below in [Use model](#use-model).
 
-e.g.  `python yolo_video.py --model_path <path to converted model>/yolo_weights.h5 --anchors project/yolo_anchors.txt --classes_path project/coco_classes.txt`
+Change directory into `project`.
+
+e.g.  `python yolo_video.py --model_path <path to converted model>/yolo_weights.h5 --anchors yolo_anchors.txt --classes_path coco_classes.txt`
 
 > For Tiny YOLOv3, just do in a similar way, except with tiny YOLOv3, converted weights.
 
@@ -149,6 +151,10 @@ IMPORTANT NOTES ON CONFIG:
 
   * The file `yolov3-custom-base.h5` is, next in training, used to load pretrained weights.
 
+### Augment dataset
+
+You may also wish to increase the size of the datsaset by performing image augmentation.  Take a look at `augmentation.py` to do so using `imgaug` library which now can operate with bounding boxes, etc.
+
 ## Data Storage
 
 ### Create Storage
@@ -185,7 +191,7 @@ Note:  just need Azure Blob Storage account (a new container is created).
 
 Run:
 
-    python upload_to_blob.py --container <container name> --account <storage account name> --key <storage account key> --dir data
+    python upload_to_blob.py --dir data
 
 ## Train with Azure ML
 
@@ -203,11 +209,15 @@ Here, a driver script will be used to control the training with Azure ML on an A
 
     python azureml_driver.py
 
+IMPORTANT NOTE:  there is a 300 MB limit on the "project" folder.
+
 ## Use Model
 
 Download from Azure ML Workspace and the correct Experiment run outputs.
 
 ### Inference on an image
+
+Change directory into `project`.
 
 In addition to other arguments, use `--image`
 
