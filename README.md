@@ -153,7 +153,7 @@ IMPORTANT NOTES ON CONFIG:
 
 ### Augment dataset
 
-You may also wish to increase the size of the datsaset by performing image augmentation.  Take a look at `augmentation.py` to do so using `imgaug` library which now can operate with bounding boxes, etc.
+You may also wish to increase the size of the dataset by performing image augmentation.  Take a look at `augmentation.py` to do so using `imgaug` library which now can operate with bounding boxes, etc.
 
 ## Data Storage
 
@@ -245,7 +245,7 @@ Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors 
 ## References
 
 * [Azure Machine Learning documentation](https://docs.microsoft.com/en-us/azure/machine-learning/)
-* [Building Powerful Image Classfication Models Using ery Little Data](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) 
+* [Building Powerful Image Classfication Models Using very Little Data](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) 
 ---
 
 ## Some issues to know
