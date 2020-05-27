@@ -14,11 +14,15 @@ data_*
 model_data/
 experiment/
 .envs
+myenvs
+.envs_*
 .DS_Store
 *.mov
 *.MOV
 *.mp4
 *.wmv
+*.zip
+*tmp*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

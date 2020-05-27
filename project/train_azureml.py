@@ -19,42 +19,132 @@ tf.python_io.control_flow_ops = tf
 
 import numpy as np
 import argparse
+import os
+import glob
+
 import keras.backend as K
 from keras.layers import Input, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, Callback
+from keras.utils import multi_gpu_model
+
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
 from yolo import YOLO
-import os
-# Device location (can be 0)
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-from keras.utils import multi_gpu_model
 
-from azureml.core import Run
+from utils import YOLO_Kmeans, convert_annotation
+from converter import convert_to_keras
 
-def main(model, gpu_num, annot_path, class_path, anchors_path, data_dir):
-    # TODO: read from cfg file or import static vars from separate config file
-    annotation_path = annot_path
+from azureml.core import Run, Workspace
+from azureml.core.authentication import ServicePrincipalAuthentication
+from azureml.core.model import Model as AzureMLModel
+
+# Device location (0 for 1 GPU, 0,1 for 2 GPU, and so on)
+# Depends on VM SKU set for AML Compute (scale up)
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+from dotenv import load_dotenv
+from pathlib import Path  # Python 3.6+ only
+env_path = Path('.') / 'myenvs'
+load_dotenv(dotenv_path=env_path)
+
+
+def main(gpu_num, class_path, data_dir, data_path, num_clusters):
+
+    # Define an Azure ML run
+    run = Run.get_context()
+
+    # Folder for persistent assets
     log_dir = 'outputs/'
-    classes_path = class_path
-    anchors_path = anchors_path
-    class_names = get_classes(classes_path)
+
+    # Conver to int
+    num_clusters = int(num_clusters)
+
+    # Define workspace object
+    try:
+        sp = ServicePrincipalAuthentication(tenant_id=os.getenv('AML_TENANT_ID'),
+                                            service_principal_id=os.getenv('AML_PRINCIPAL_ID'),
+                                            service_principal_password=os.getenv('AML_PRINCIPAL_PASS')) 
+        ws = Workspace.get(name=os.getenv('WORKSPACE_NAME'),
+                           auth=sp,
+                           subscription_id=os.getenv('SUBSCRIPTION_ID'))
+    # Need to create the workspace
+    except Exception as err:
+        print('Issue with service principal or workspace creation: ', err)
+        assert False
+
+    # Get classes
+    class_names = get_classes(class_path)
     num_classes = len(class_names)
-    anchors = get_anchors(anchors_path)
-    initial_lr = 1e-4
 
-    input_shape = (608,608) # multiple of 32, hw
+    # Create annot file (file with image path and bounding boxes - one image per line)
+    image_ids = [os.path.basename(x) for x in glob.glob(os.path.join(data_path, 
+        data_dir, 'JPEGImages/*.*'))]
+    annot_filename = './outputs/train_val.txt'
+    annot_file = open(annot_filename, 'w') # output file
+    for image_id in image_ids:
+        annot_file.write(os.path.join(data_path, 
+            data_dir, 'JPEGImages/{}'.format(image_id)))
+        convert_annotation(image_id='.'.join(image_id.split('.')[0:-1]), 
+                           list_file=annot_file,
+                           classes=class_names,
+                           data_dir=data_dir,
+                           data_path=data_path)
+        annot_file.write('\n')
+    annot_file.close()
 
-    is_tiny_version = len(anchors)==6 # default setting
-    # Transfer learning - all layers frozen except last 2
+    # Calculate anchor boxes
+    out_file = './outputs/custom_anchors.txt'
+    kmeans = YOLO_Kmeans(args.num_clusters, annot_filename, out_file)
+    kmeans.txt2clusters()
+
+    # Anchors and filters
+    anchors_orig, anchors = get_anchors(out_file)
+    filter_num = (num_classes + 5)*3
+
+    # Update config file template
+    # replace $FILTERS, $CLASSES, and $ANCHORS w/ correct value from above
+    if num_clusters == 9:
+        with open('yolov3-custom_template.cfg', 'r') as fptr:
+            config_str = fptr.read()
+            config_str = config_str.replace('$FILTERS', str(filter_num))
+            config_str = config_str.replace('$CLASSES', str(num_classes))
+            config_str = config_str.replace('$ANCHORS', anchors_orig)
+    else: # num_clusters == 6
+        with open('yolov3-tiny-custom_template.cfg', 'r') as fptr:
+            config_str = fptr.read()
+            config_str = config_str.replace('$FILTERS', str(filter_num))
+            config_str = config_str.replace('$CLASSES', str(num_classes))
+            config_str = config_str.replace('$ANCHORS', anchors_orig)
+    with open('./outputs/yolov3-custom.cfg', 'w') as outptr:
+        outptr.write(config_str)
+
+    # Download Darknet model (from Azure ML Workspace) and convert
+    keras_custom_model = './outputs/yolov3_custom.h5'
+    if num_clusters == 9:
+        AzureMLModel(ws, name='yolov3.weights').download(target_dir='.', exist_ok=True)
+        convert_to_keras(config_path='./outputs/yolov3-custom.cfg',
+                        weights_path='yolov3.weights',
+                        output_path=keras_custom_model)
+    else:
+        AzureMLModel(ws, name='yolov3-tiny.weights').download(target_dir='.', exist_ok=True)
+        convert_to_keras(config_path='./outputs/yolov3-custom.cfg',
+                        weights_path='yolov3-tiny.weights',
+                        output_path=keras_custom_model)
+
+
+    initial_lr = 1e-2
+    input_shape = (608,608) # default setting
+    is_tiny_version = (num_clusters == 6)
+    # Use transfer learning - all layers frozen except last "freeze_body" number
     if is_tiny_version:
+        input_shape = (416,416) #Change default anchor box number
         model = create_tiny_model(input_shape, anchors, num_classes,
-            freeze_body=4, weights_path=model)
+            freeze_body=2, weights_path=keras_custom_model, gpu_num=gpu_num)
     else:
         model = create_model(input_shape, anchors, num_classes,
-            freeze_body=4, weights_path=model) # make sure you know what you freeze
+            freeze_body=2, weights_path=keras_custom_model) # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -63,24 +153,19 @@ def main(model, gpu_num, annot_path, class_path, anchors_path, data_dir):
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
     val_split = 0.2
-    with open(annotation_path) as f:
+    with open(annot_filename) as f:
         lines = f.readlines()
-    # Add the blob storage, azureml-mounted data directory
-    lines = [l.replace('data', os.path.join(data_dir, 'data')) for l in lines]
-
+    
     np.random.seed(10101)
     np.random.shuffle(lines)
     np.random.seed(None)
     num_val = int(len(lines)*val_split)
     num_train = len(lines) - num_val
 
-    # start an Azure ML run
-    run = Run.get_context()
-
     class LogRunMetrics(Callback):
         # callback at the end of every epoch
         def on_epoch_end(self, epoch, log):
-            # log a value repeated which creates a list
+            # log a value repeated which creates a list for Azure ML tracking
             run.log('Loss', log['loss'])
 
     # Train with frozen layers first, to get a stable loss.
@@ -90,18 +175,18 @@ def main(model, gpu_num, annot_path, class_path, anchors_path, data_dir):
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 4
+        batch_size = 2
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
                 validation_steps=max(1, num_val//batch_size),
-                epochs=50,
+                epochs=20,
                 initial_epoch=0,
                 callbacks=[logging, LogRunMetrics()])
-        model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'trained_weights_intermediate.h5')
         # Save architecture, too
-        with open(log_dir + 'trained_weights_stage_1.json', 'w') as f:
+        with open(log_dir + 'trained_weights_intermediate.json', 'w') as f:
             f.write(model.to_json())
 
     # Unfreeze and continue training, to fine-tune.
@@ -112,14 +197,14 @@ def main(model, gpu_num, annot_path, class_path, anchors_path, data_dir):
         model.compile(optimizer=Adam(lr=initial_lr/100), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size = 4 # note that more GPU memory is required after unfreezing the body
+        batch_size = 2 # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
-            epochs=75,
-            initial_epoch=50,
+            epochs=40,
+            initial_epoch=20,
             callbacks=[logging, checkpoint, early_stopping, reduce_lr, LogRunMetrics()])
         model.save_weights(log_dir + 'trained_weights_final.h5')
         # Save architecture, too
@@ -139,9 +224,9 @@ def get_classes(classes_path):
 def get_anchors(anchors_path):
     '''loads the anchors from a file'''
     with open(anchors_path) as f:
-        anchors = f.readline()
-    anchors = [float(x) for x in anchors.split(',')]
-    return np.array(anchors).reshape(-1, 2)
+        anchors_orig = f.readline()
+    anchors = [float(x) for x in anchors_orig.split(',')]
+    return anchors_orig, np.array(anchors).reshape(-1, 2)
 
 
 def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
@@ -175,7 +260,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     return model
 
 def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
-            weights_path='model_data/tiny_yolo_weights.h5'):
+            weights_path='model_data/tiny_yolo_weights.h5', gpu_num=1):
     '''create the training model, for Tiny YOLOv3'''
     K.clear_session() # get a new session
     image_input = Input(shape=(None, None, 3))
@@ -236,10 +321,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
 
     # Command line options
-    parser.add_argument(
-        '--model', type=str,
-        help='path to model weight file, default ' + YOLO.get_defaults("model_path")
-    )
 
     parser.add_argument(
         '--gpu_num', type=int,
@@ -247,27 +328,29 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--annot_path', type=str,
-        help='Annotation file with image location and bboxes'
-    )
-
-    parser.add_argument(
         '--class_path', type=str,
-        help='Text file with class names one per line'
+        help='Text file with class names one per line.'
     )
 
     parser.add_argument(
-        '--anchors_path', type=str,
-        help='Text file with anchor positions, comma separated, on one line.'
+        '--data_path', type=str,
+        help='Azure ML path to Storage passed from datastore mount in driver.'
     )
 
     parser.add_argument(
         '--data_dir', type=str, default='data',
-        help='Directory for training data.'
+        help='Directory for training data as found in the Blob Storage container; Azure ML-specified value.'
+    )
+
+    parser.add_argument(
+        '--num_clusters', type=int, default=9,
+        help='Number of anchor boxes; 9 for full size YOLO and 6 for tiny YOLO.'
     )
 
     args = parser.parse_args()
 
-    main(model=args.model, gpu_num=args.gpu_num,
-          annot_path=args.annot_path, class_path=args.class_path,
-          anchors_path=args.anchors_path, data_dir=args.data_dir)
+    main(gpu_num=args.gpu_num,
+         class_path=args.class_path,
+         data_dir=args.data_dir,
+         data_path=args.data_path,
+         num_clusters=args.num_clusters)

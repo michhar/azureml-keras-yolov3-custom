@@ -1,16 +1,42 @@
-"""
-Create anchors using Kmeans clustering on dataset.  Creates a text file
-to use during training.
-"""
-
+import xml.etree.ElementTree as ET
+import os
+import glob
 import numpy as np
-import argparse
 
+
+def convert_annotation(image_id, list_file, classes, data_dir, data_path):
+    in_file = open(os.path.join(data_path, data_dir, 'Annotations/%s.xml'%(image_id)))
+    tree=ET.parse(in_file)
+    root = tree.getroot()
+
+    for obj in root.iter('object'):
+        difficult = obj.find('difficult').text
+        cls = obj.find('name').text
+        if cls not in classes or int(difficult)==1:
+            continue
+        cls_id = classes.index(cls)
+        xmlbox = obj.find('bndbox')
+        b = (int(float(xmlbox.find('xmin').text)), int(float(xmlbox.find('ymin').text)), 
+            int(float(xmlbox.find('xmax').text)), int(float(xmlbox.find('ymax').text)))
+        list_file.write(" " + ",".join([str(a) for a in b]) + ',' + str(cls_id))
+
+def convert_all_annotations(data_dir, data_path):
+    wd = os.getcwd()
+
+    image_ids = [os.path.basename(x) for x in glob.glob(os.path.join(data_path, data_dir, 'JPEGImages', '*.*'))]
+    print(image_ids)
+
+    list_file = open('%s.txt'%('train_list'), 'w')
+    for image_id in image_ids:
+        list_file.write(os.path.join(data_path, data_dir, 'JPEGImages/{}'.format(image_id)))
+        convert_annotation('.'.join(image_id.split('.')[0:-1]), list_file, data_dir, data_path)
+        list_file.write('\n')
+    list_file.close()
 
 class YOLO_Kmeans:
 
     def __init__(self, cluster_number, annot_file, out_file):
-        self.cluster_number = cluster_number
+        self.cluster_number = int(cluster_number)
         self.annot_file = annot_file
         self.out_file = out_file
 
@@ -99,35 +125,3 @@ class YOLO_Kmeans:
         print("K anchors:\n {}".format(result))
         print("Accuracy: {:.2f}%".format(
             self.avg_iou(all_boxes, result) * 100))
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-
-    # Command line options
-    parser.add_argument(
-        '--num_clusters', type=int,
-        default=9,
-        help='Number of desired clusters or anchors'
-    )
-
-    # Command line options
-    parser.add_argument(
-        '--annot_file', type=str,
-        help='Annotations file name (list of images and bboxes)'
-    )
-
-    parser.add_argument(
-        '--out_file', type=str,
-        default="yolo_anchors_custom.txt",
-        help='Output file name'
-    )
-
-    args = parser.parse_args()
-
-    cluster_number = args.num_clusters
-    annot_file = args.annot_file
-    out_file = args.out_file
-    kmeans = YOLO_Kmeans(cluster_number, annot_file, out_file)
-    kmeans.txt2clusters()

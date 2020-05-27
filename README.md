@@ -7,7 +7,7 @@ This work is based on:
 * Keras YOLOv3 implementation for object detection https://github.com/qqwweee/keras-yolo3
 * A fork for custom data https://github.com/michhar/keras-yolo3-custom (this repo is the Azure ML implementation).
 
-YOLO stands for you only look once and is an efficient algorithm for object detection.  Here, for example, a YOLOv3 detector was trained to detect large trucks.
+YOLO stands for "you only look once" and is an efficient algorithm for object detection.
 
 <img src="assets/truck_id.png" width="75%" alignment="center">
 
@@ -27,147 +27,67 @@ This implementation of YOLOv3 (Tensorflow backend) was inspired by [allanzelener
 
 ## What You Do Here
 
-Using this repo you will perform some or all of the following:
-
-* Convert a Darknet model to a Keras model (and if custom setup, modify the config file with proper filter and class numbers)
-* Perform inference on video or image - a quick start
-* Label data with a bounding box definition tool
-* Train a model with Azure Machine Learning on custom data using the converted custom Darknet model in Keras format (`.h5`)
-* Perform inference with the custom model on single image frames or videos
-
-## Quick Start Demo on Local Computer
-
-### Set up your environment for demo
-
-* Python 3 is recommended (tested with an Anaconda install of 3.6)
-
-1. `pip install -r requirements.txt`
-
-### Demo
-
-2. Download YOLOv3 weights.
-
-Download full-sized YOLOv3 here:  https://pjreddie.com/media/files/yolov3.weights
-
-Or, on linux:  `wget https://pjreddie.com/media/files/yolov3.weights`
-
-  * If the tiny version of the weights are needed, download this file:  https://pjreddie.com/media/files/yolov3-tiny.weights
-
-3. Convert the Darknet YOLOv3 model to a Keras model.
-
-  * To convert the darknet format of weights to Keras format, make sure you have run the following using the proper config file
-
-      `python convert.py -w cfg/yolov3.cfg yolov3.weights yolo_weights.h5`
-
-4. Run YOLO detection with `yolo_video.py`.
+1. Provision required resources in Azure
+    - Azure ML Workspace
+    - Azure Storage Account
+    - Service Principal authentication for Workspace
+2. Install prerequisite libraries
+3. Register base model to Azure ML Workspace
+4. Upload images or video to Storage
+5. Label data with VoTT and export to Storage
+6. Use driver Python script to train a model in the cloud
+7. Download final model
+8. Perform inference on video from camera
 
 
-Run on video or image file:
-
-```
-usage: yolo_video.py [-h] [--model_path MODEL_PATH]
-                     [--anchors_path ANCHORS_PATH]
-                     [--classes_path CLASSES_PATH] [--gpu_num GPU_NUM]
-                     [--image] [--input [INPUT]] [--output [OUTPUT]]
-
-  -h, --help            show this help message and exit
-  --model_path MODEL_PATH
-                        path to model weight file, default model_data/yolo.h5
-  --anchors_path ANCHORS_PATH
-                        path to anchor definitions, default
-                        model_data/yolo_anchors.txt
-  --classes_path CLASSES_PATH
-                        path to class definitions, default
-                        model_data/coco_classes.txt
-  --gpu_num GPU_NUM     Number of GPU to use, default 1
-  --image               Image detection mode, will ignore all positional
-                        arguments
-  --input [INPUT]       Video input path
-  --output [OUTPUT]     [Optional] Video output path
-```
-
-For examples, see below in [Use model](#use-model).
-
-Change directory into `project`.
-
-e.g.  `python yolo_video.py --model_path <path to converted model>/yolo_weights.h5 --anchors yolo_anchors.txt --classes_path coco_classes.txt`
-
-> For Tiny YOLOv3, just do in a similar way, except with tiny YOLOv3, converted weights.
+The driver script automatically calculates the optimal sizes for the anchor boxes and updates a config file for YOLOv3.  It also uses the config file to convert a pretrained Darknet model to Keras format for the custom number of classes.
 
 ---
 
-4. MultiGPU usage is an optional. Change the number of gpu and add gpu device id.
+## Provision required resources in Azure
 
-## Data Prep
+1. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-manage-workspace" target="_blank">Create an Azure ML Workspace</a>
+  - Download the `config.json` from the Azure ML Workspace in the Azure Portal and place in the `project/.azureml` folder.  When using this file, interative authentication will need to happen (vs. through a Service Principal).
 
-1. Use the VoTT **v1** (<a href="https://github.com/microsoft/VoTT/releases/tag/v1.7.2">link to download</a>) labeling tool if using custom data and export to **Tensorflow Pascal VOC**.
+2. <a href="https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal" target="_blank">Create an Azure Storage Account</a>
 
-You should get some name of a folder followed by `_output`.  It will have three subfolders
+3. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication#set-up-service-principal-authentication" target="_blank">Create a Service Principal</a>.
+  - A Service Principal is the recommeded way for an unattended script or production system to authenticate with Azure ML for accessing a Workspace.
+
+## Install prerequisite libraries
+
+Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).
+
+```unix
+pip install azureml-sdk==1.5.0
 ```
-/Annotations
-/ImageSets
-/JPEGImages
+
+## Register base model to Azure ML Workspace
+
+Download either the full-sized YOLO v3 or the tiny version.
+
+Download full-sized YOLOv3 here:  https://pjreddie.com/media/files/yolov3.weights
+
+Or, on Linux:  `wget https://pjreddie.com/media/files/yolov3.weights`
+
+> If the tiny version of the weights are needed, download this file, instead:  https://pjreddie.com/media/files/yolov3-tiny.weights
+
+Run the following script to register the YOLO model to the Azure ML Workspace in the cloud (it uploads it in the background as well).  `--model-size` should be either `full` or `tiny`.
+
+```unix
+python register_local_model.py --model-size full
 ```
 
-2. Rename the `xyz_output` folder to `data`.
 
-3. Copy `data` to the base of this repo.
+## Upload images or video to Storage
 
-## Labels
-
-1. Generate your own annotation file and class names file in the following format with `voc_annotation.py` described below.
-
-    * It should generate one row for each image, e.g.:  `image_file_path x_min,y_min,x_max,y_max,class_id`.
-
-Generate this file with `voc_annotation.py`.  This script takes all of the `Annotations` and `ImageSets` (classes with val and train) and converts them into one file.  The final text file will then be used by the training script.
-
-  * Modify the `sets` and `classes` appropriately within `voc_annotation.py`
-  * Run with `python voc_annotation.py`
-
-    Here is an example of the output:
-    ```
-    path/to/img1.jpg 50,100,150,200,0 30,50,200,120,3
-    path/to/img2.jpg 120,300,250,600,2
-    ...
-    ```
-
-## Other Project Settings
-
-2.  Calculate the appropriate achor box sizes with `kmeans.py` using the training annotation file output from `voc_annotation.py` as the `--annot_file`.
-
-    `python kmeans.py --annot_file project/train_list.txt --out_file project/custom_anchors.txt --num_clusters 9`
-
-    * Note, for  `--num_clusters`, use 9 for full YOLOv3 and 6 for tiny YOLOv3.
-
-3. To convert the darknet format of weights to Keras format, make sure you have run the following using the proper config file (with, optionally, the custom achors from the previous step)
-
-IMPORTANT NOTES ON CONFIG:
-
-  * Make sure you have set up the config `.cfg` file correctly (`filters` and `classes`) - more information on how to do this <a href="https://github.com/AlexeyAB/darknet#how-to-train-to-detect-your-custom-objects" target="_blank">"How to train (to detect your custom objects):" (do only step #1)</a>
-  * For config, update the `filters` in CNN layer above `[yolo]`s and `classes` in `[yolo]`'s to class number (as well as anchors if using custom anchors!)
-
-
-    `python convert.py -w project/yolov3-custom1class.cfg yolov3.weights project/yolov3-custom-base.h5`  
-
-  * The file `yolov3-custom-base.h5` is, next in training, used to load pretrained weights.
-
-### Augment dataset
-
-You may also wish to increase the size of the dataset by performing image augmentation.  Take a look at `augmentation.py` to do so using `imgaug` library which now can operate with bounding boxes, etc.
-
-## Data Storage
-
-### Create Storage
-
-1. In Azure, create Storage account
-
-### Set Environment Variables
+Define some local environment variables as follows so that the script running on the compute target knows about the Azure Storage Account for the data.
 
 **Windows**
 
 Create a `setenvs.cmd` file with the following:
 
-```
+```unix
 set STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for trained data>
 set STORAGE_ACCOUNT_NAME=<Storage account name>
 set STORAGE_ACCOUNT_KEY=<Storage account key>
@@ -177,7 +97,7 @@ set STORAGE_ACCOUNT_KEY=<Storage account key>
 
 Create a `setenvs.sh` file with the following:
 
-```
+```unix
 export STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for trained data>
 export STORAGE_ACCOUNT_NAME=<Storage account name>
 export STORAGE_ACCOUNT_KEY=<Storage account key>
@@ -185,35 +105,90 @@ export STORAGE_ACCOUNT_KEY=<Storage account key>
 
 Run the .cmd or shell script to set the environment variables in the current terminal window.
 
-### Upload Data to Azure Blob
 
-Note:  just need Azure Blob Storage account (a new container is created).
+Create a folder of images to be labeled, locally, and place all images in this folder.  Upload that folder to Azure Blob Storage with the following script.
 
-Run:
+If the images are in the `data` folder, for example, the script would be run as follows.
 
-    python upload_to_blob.py --dir data
+```unix
+python upload_to_blob.py --dir data
+```
 
-## Train with Azure ML
+## Label data with VoTT and export to Storage
 
-Here, a driver script will be used to control the training with Azure ML on an Azure ML Compute cluster, provisioned or set in driver script, along with the data store and config files to use.  Some settings will need to be mofified.
+The VoTT labeling tool imports and exports directly to Azure Blob Storage, to containers specified in while using the tool.  Generally, images should exist in a pre-populated, private Blob Storage container (this will be the data from the previous step).
 
-1.  On command line log in to Azure with the Azure CLI and ensure in correct subscription (may need to `az account set --subscription <subscription name>`)
+Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.
 
-2. Need to have `./project/.azureml/config.json` which specified Azure ML Workspace.
+Your output will have one folder with three subfolders in a new Storage container (the connection name used with VoTT).  Check the Azure Portal that this is the case.  The structure should look as follows.
 
-3. Need to update `epochs` and `initial_epoch` in `train_azureml.py` in project folder.
+```
+/ProjectName-PascalVOC-export
+  /Annotations
+  /ImageSets
+  /JPEGImages
+```
 
-[Add guidance here]
+The annotations and images in this Storage container will then be used in the training script (mounted by Azure ML as a Data Store).
 
-4. Modify `azureml_driver.py` with correct settings.  Run the following (no arguments so please set in script as needed).
+## Use driver Python script to train a model in the cloud
 
-    python azureml_driver.py
+Create `myenvs` with the Service Principal information and place it in the `project` folder.  For instance, create this file with the following filled in with your values (do not include the `<>` characters).
 
-IMPORTANT NOTE:  there is a 300 MB limit on the "project" folder.
+```unix
+AML_TENANT_ID=<Tenant ID>
+AML_PRINCIPAL_ID=<Client ID>
+AML_PRINCIPAL_PASS=<Client Password>
+SUBSCRIPTION_ID=<Subscription ID>
+WORKSPACE_NAME=<Azure ML Workspace Name>
+```
 
-## Use Model
+Define the class names in a file called `custom_classes.txt` and place it in the `project` folder, each class on a separate line, as in the following 2 class file.
 
-Download from Azure ML Workspace and the correct Experiment run outputs.
+```
+helmet
+no_helmet
+```
+
+The training script, `project/train_azureml.py` does the following.
+
+1. Calculates achor box sizes
+2. Creates the proper config file (proper filter, anchor and class numbers)
+3. Converts the YOLO v3 Darknet weights to Keras weights
+4. Trains the YOLO model
+  - Tracking the loss with Azure ML workspace (can be monitored from the Portal)
+5. Saves the models to the `outputs` folder (the folder that persists after training in the Workspace)
+
+> Technical note on anchor boxes:  filters=(classes + 5)x3 in the 3 [convolutional] before each [yolo] (<a href="https://github.com/AlexeyAB/darknet#how-to-train-to-detect-your-custom-objects" target="_blank">source</a>).
+
+The driver script, `azureml_driver.py`, wrapping the training process, does the following.
+
+1. Creates or reinitializes the target compute
+2. Registers the Data Store (using the labeled data container and credentials in `myenvs`) to Azure ML Workspace
+3. Defines the TensorFlow Estimator with some of the command line arguments to point to the training script
+4. Submits a Run under the Experiment name given in the command line arguments that runs the training script
+5. Registers the intermediate and final model to the Azure ML Workspace for later use (e.g. in deployments)
+
+To train the model with Azure ML run the driver, as in the following example.
+
+```unix
+python azureml_driver.py --experiment-name legov1 --gpu-num 1 --class-path custom_classes.txt --data-dir Test-Lego-PascalVOC-export --num-clusters 6
+```
+
+For help on using this script (as with the other scripts), run with `-h`.
+
+```unix
+python azureml_driver.py -h
+```
+
+## Download final model
+
+Navigate to the Azure ML Workspace in the Azure Portal and go to the Experiment -> Run -> Outputs tab and download:
+
+- Model (`trained_weights_final.h5`)
+- `custom_anchors.txt`
+
+## Perform inference on video from camera
 
 ### Inference on an image
 
@@ -241,7 +216,6 @@ Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors 
 
 * Based on https://github.com/qqwweee/keras-yolo3
 
-
 ## References
 
 * [Azure Machine Learning documentation](https://docs.microsoft.com/en-us/azure/machine-learning/)
@@ -250,11 +224,11 @@ Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors 
 
 ## Some issues to know
 
-1. Default anchors can be used. If you use your own anchors, probably some changes are needed (using `model_data/yolo_tiny_anchors.txt`).
+1. Default anchors can be used. If you use your own anchors, probably some changes are needed - the training script now calculates these automatically for you.
 
 2. The inference result is not totally the same as Darknet but the difference is small.
 
-3. The speed is slower than Darknet. Replacing PIL with opencv may help a little.
+3. The speed is slower than Darknet. Replacing PIL with OpenCV may help a little.
 
 4. Always load pretrained weights and freeze layers in the first stage of training. Or try Darknet training. It's OK if there is a mismatch warning.
 

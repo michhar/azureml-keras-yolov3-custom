@@ -11,36 +11,38 @@ import os
 
 def main():
 
-    # Use service principal secrets to create authentication vehicle and 
-    # define workspace object
+    # Used downloaded Workspace configuratin file to authenticate
+    # interactively
     try:    
         ws = Workspace.from_config(path='./project/.azureml/config.json')
     # Need to create the workspace
     except Exception as err:
-        print('No workspace.  Check for config.json file.')
+        print('No workspace.  Check for config.json file under "project/.azureml".')
         assert False
 
-    # model = Model.register(model_path = "project/yolo.h5",
-    #                     model_name = "yolov3.h5",
-    #                     tags = {'framework': "keras", 'type': "object detection"},
-    #                     description = "Keras base model trained on COCO (80 classes)",
-    #                     workspace = ws)
-
-    model = Model.register(model_path="logs/trained_weights_final_ep275.h5",
-                        model_name="mixdata_trained_weights.h5",
-                        tags={'framework': "keras", 'type': "object detection", "format": "h5", "notes": ""},
-                        description="Keras YOLOv3 full-sized model trained - 1 class",
-                        workspace=ws)
-
-    model_json = Model.register(model_path="logs/trained_weights_final_ep275.json",
-                        model_name="mixdata_trained_weights.json",
-                        tags={'framework': "keras", 'type': "object detection", "format": "json", "notes": ""},
-                        description="Keras YOLOv3 full-sized model json/architecture trained - 1 class",
-                        workspace=ws)
-
-    model_root = Model.get_model_path('logs/')
-    print(model_root)
-
+    if args.model_size == 'full':
+        model = Model.register(model_path="yolov3.weights",
+                            model_name="yolov3.weights",
+                            tags={'framework': "darknet", 'type': "object detection"},
+                            description="Darknet base model trained on COCO (80 classes)",
+                            workspace=ws)
+    elif args.model_size == 'tiny':
+        model = Model.register(model_path="yolov3-tiny.weights",
+                            model_name="yolov3-tiny.weights",
+                            tags={'framework': "darknet", 'type': "object detection"},
+                            description="Darknet base model (tiny version) trained on COCO (80 classes)",
+                            workspace=ws)
+    else:
+        print('Please choose "full" or "tiny" for your "--model-size" argument.')
 
 if __name__ == '__main__':
-    main()
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--model-size', type=str, dest='model_size',
+        help='Options:  "full" or "tiny"'
+    )
+
+    args = parser.parse_args()
+    main(args)

@@ -2,22 +2,22 @@
 Azure ML Service driver script for keras experiments.
 """
 
-import azureml
-from azureml.core import Experiment
-from azureml.core import Workspace, Run, Datastore
-from azureml.core.compute import ComputeTarget, AmlCompute
-from azureml.core.compute_target import ComputeTargetException
-from azureml.core.dataset import Dataset
-from azureml.train.dnn import TensorFlow
-
+import argparse
 import shutil
 import os
 import json
 import time
 import logging
 
+import azureml
+from azureml.core import Experiment, Workspace, Run, Datastore
+from azureml.core.compute import ComputeTarget, AmlCompute
+from azureml.core.compute_target import ComputeTargetException
+from azureml.core.dataset import Dataset
+from azureml.train.dnn import TensorFlow
 
-def main():
+
+def main(args):
     logging.info('Main started.')
 
     # Define workspace object
@@ -35,7 +35,7 @@ def main():
         # print("Created workspace {} at location {}".format(ws.name, ws.location))  
 
     # choose a name for your cluster - under 16 characters
-    cluster_name = "gpuforkeras2"
+    cluster_name = "gpuforkeras"
 
     try:
         compute_target = ComputeTarget(workspace=ws, name=cluster_name)
@@ -57,7 +57,7 @@ def main():
     project_folder = os.path.join(os.getcwd(), 'project')
 
     # Create an experiment
-    experiment_name = 'keras-big-objects'
+    experiment_name = args.experiment_name
     experiment = Experiment(ws, name=experiment_name)
 
     # # Use an AML Data Store for training data
@@ -70,16 +70,15 @@ def main():
 
     # Set up for training
     script_params = {
-        # --data_dir is a Python object that will mount the 
+        # --data_path is a Python object that will mount the 
         #   datastore to the compute target in next step (linking 
         #   to Blob Storage)
-        '--data_dir': ds.as_mount(),
-        '--model': 'yolov3-custom-base.h5',
-        '--gpu_num': 1,
-        '--annot_path': 'train.txt',
-        '--class_path': 'custom_classes1.txt',
-        '--anchors_path': 'custom_anchors.txt'
-    }
+        '--data_path': ds.as_mount(),
+        '--data_dir': args.data_dir,
+        '--gpu_num': args.gpu_num,
+        '--class_path': args.class_path,
+        '--num_clusters': args.num_clusters
+        }
 
     # Instantiate PyTorch estimator with upload of final model to
     # a specified blob storage container (this can be anything)
@@ -90,17 +89,59 @@ def main():
                         pip_packages=['keras==2.2.4',
                                       'matplotlib==3.1.1',
                                       'opencv-python==4.1.1.26', 
-                                      'Pillow'],
-                        use_gpu=True)
+                                      'Pillow',
+                                      'numpy',
+                                      'configparser',
+                                      'python-dotenv',
+                                      'tensorflow==1.13.1'],
+                        use_gpu=True,
+                        framework_version='1.13')
 
+    # Submit and wait for run to complete - check experiment in Azure Portal for progress
     run = experiment.submit(estimator)
     print(run.get_details())
     run.wait_for_completion(show_output=True)
 
-    model = run.register_model(model_name='keras-dnn-truck-intermediate', model_path='./outputs/trained_weights_stage_1.h5')
-    model = run.register_model(model_name='keras-dnn-truck', model_path='./outputs/trained_weights_final.h5')
-    model = run.register_model(model_name='keras-dnn-truck-intermediate-arch', model_path='./outputs/trained_weights_stage_1.json')
-    model = run.register_model(model_name='keras-dnn-truck-arch', model_path='./outputs/trained_weights_final.json')
+    # Register models to Workspace
+    model = run.register_model(model_name='keras-dnn-intermediate', 
+                               model_path='./outputs/trained_weights_intermediate.h5',
+                               tags={'framework': "Keras", 'task': "object detection"},
+                               description="Custom Keras YOLOv3 model - before fine-tuning phase")
+    model = run.register_model(model_name='keras-dnn', 
+                               model_path='./outputs/trained_weights_final.h5',
+                               tags={'framework': "Keras", 'task': "object detection"},
+                               description="Custom Keras YOLOv3 model - final, after fine-tuning phase")
+
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+
+    # Command line options
+    parser.add_argument(
+        '--experiment-name', type=str, dest='experiment_name',
+        help='A name for Azure ML experiment'
+    )
+
+    parser.add_argument(
+        '--gpu-num', type=int, dest='gpu_num', default=1,
+        help='Number of GPU to use'
+    )
+
+    parser.add_argument(
+        '--class-path', type=str, dest='class_path',
+        help='Text file with class names one per line'
+    )
+
+    parser.add_argument(
+        '--data-dir', type=str, dest='data_dir', default='Project-PascalVOC-export',
+        help='Directory for training data as found in the Blob Storage container.'
+    )
+
+    parser.add_argument(
+        '--num-clusters', type=str, dest='num_clusters', default=9,
+        help='Number of anchor boxes; 9 for full size YOLO and 6 for tiny YOLO; default is 9.'
+    )
+
+    args = parser.parse_args()
+
+    main(args)

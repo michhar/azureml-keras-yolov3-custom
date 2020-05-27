@@ -27,22 +27,22 @@ if __name__ == '__main__':
     Command line options
     '''
     parser.add_argument(
-        '--model_path', type=str,
+        '--model-path', type=str, dest='model_path',
         help='path to model weight file, default ' + YOLO.get_defaults("model_path")
     )
 
     parser.add_argument(
-        '--anchors_path', type=str,
+        '--anchors-path', type=str, dest='anchors_path',
         help='path to anchor definitions, default ' + YOLO.get_defaults("anchors_path")
     )
 
     parser.add_argument(
-        '--classes_path', type=str,
+        '--classes-path', type=str, dest='classes_path',
         help='path to class definitions, default ' + YOLO.get_defaults("classes_path")
     )
 
     parser.add_argument(
-        '--gpu_num', type=int,
+        '--gpu-num', type=int, dest='gpu_num',
         help='Number of GPU to use, default ' + str(YOLO.get_defaults("gpu_num"))
     )
 
