@@ -50,7 +50,7 @@ env_path = Path('.') / 'myenvs'
 load_dotenv(dotenv_path=env_path)
 
 
-def main(gpu_num, class_path, data_dir, data_path, num_clusters):
+def main(gpu_num, class_path, data_dir, data_path, num_clusters, batch_size, learning_rate):
 
     # Define an Azure ML run
     run = Run.get_context()
@@ -134,17 +134,17 @@ def main(gpu_num, class_path, data_dir, data_path, num_clusters):
                         output_path=keras_custom_model)
 
 
-    initial_lr = 1e-2
+    initial_lr = learning_rate
     input_shape = (608,608) # default setting
     is_tiny_version = (num_clusters == 6)
     # Use transfer learning - all layers frozen except last "freeze_body" number
     if is_tiny_version:
         input_shape = (416,416) #Change default anchor box number
         model = create_tiny_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path=keras_custom_model, gpu_num=gpu_num)
+            freeze_body=4, weights_path=keras_custom_model, gpu_num=gpu_num)
     else:
         model = create_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path=keras_custom_model) # make sure you know what you freeze
+            freeze_body=4, weights_path=keras_custom_model) # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -175,13 +175,12 @@ def main(gpu_num, class_path, data_dir, data_path, num_clusters):
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 2
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
                 validation_steps=max(1, num_val//batch_size),
-                epochs=20,
+                epochs=30,
                 initial_epoch=0,
                 callbacks=[logging, LogRunMetrics()])
         model.save_weights(log_dir + 'trained_weights_intermediate.h5')
@@ -197,14 +196,13 @@ def main(gpu_num, class_path, data_dir, data_path, num_clusters):
         model.compile(optimizer=Adam(lr=initial_lr/100), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size = 2 # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
-            epochs=40,
-            initial_epoch=20,
+            epochs=60,
+            initial_epoch=30,
             callbacks=[logging, checkpoint, early_stopping, reduce_lr, LogRunMetrics()])
         model.save_weights(log_dir + 'trained_weights_final.h5')
         # Save architecture, too
@@ -347,10 +345,22 @@ if __name__ == '__main__':
         help='Number of anchor boxes; 9 for full size YOLO and 6 for tiny YOLO.'
     )
 
+    parser.add_argument(
+        '--batch_size', type=int, default=8,
+        help='Minibatch size for training.'
+    )
+
+    parser.add_argument(
+        '--learning_rate', type=float, default=0.0001,
+        help='Learning rate.'
+    )
+
     args = parser.parse_args()
 
     main(gpu_num=args.gpu_num,
          class_path=args.class_path,
          data_dir=args.data_dir,
          data_path=args.data_path,
-         num_clusters=args.num_clusters)
+         num_clusters=args.num_clusters,
+         batch_size=args.batch_size,
+         learning_rate=args.learning_rate)

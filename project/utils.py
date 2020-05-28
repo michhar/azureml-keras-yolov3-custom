@@ -73,8 +73,12 @@ class YOLO_Kmeans:
         distances = np.empty((box_number, k))
         last_nearest = np.zeros((box_number,))
         np.random.seed()
-        clusters = boxes[np.random.choice(
-            box_number, k, replace=False)]  # init k clusters
+        try:
+            clusters = boxes[np.random.choice(
+                box_number, k, replace=False)]  # init k clusters
+        except ValueError as err:
+            print('Kmeans error: ', err)
+            assert False
         while True:
 
             distances = 1 - self.iou(boxes, clusters)

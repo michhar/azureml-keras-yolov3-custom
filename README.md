@@ -7,9 +7,9 @@ This work is based on:
 * Keras YOLOv3 implementation for object detection https://github.com/qqwweee/keras-yolo3
 * A fork for custom data https://github.com/michhar/keras-yolo3-custom (this repo is the Azure ML implementation).
 
-YOLO stands for "you only look once" and is an efficient algorithm for object detection.
+YOLO stands for "you only look once" and is an efficient algorithm for object detection.  The following image is showing the results from a trained car detector.
 
-<img src="assets/truck_id.png" width="75%" alignment="center">
+<img src="assets/car_id.jpg" width="75%" alignment="center">
 
 Important papers on YOLO:
 
@@ -116,11 +116,19 @@ python upload_to_blob.py --dir data
 
 ## Label data with VoTT and export to Storage
 
-The VoTT labeling tool imports and exports directly to Azure Blob Storage, to containers specified in while using the tool.  Generally, images should exist in a pre-populated, private Blob Storage container (this will be the data from the previous step).
+VoTT is the labeling tool that will be used locally to label data that is stored in the cloud and will write the labels directly back to a cloud store using a SAS string for REST authentication.  The tool imports from and exports directly to Azure Blob Storage containers specified while using the tool with no need to download data for labeling.  The images to label should exist already in a private Blob Storage container (the data from the previous step above).
 
-Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.
+Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.  The Readme on the project page has excellent instructions on connecting to Blob Storage.
 
-Your output will have one folder with three subfolders in a new Storage container (the connection name used with VoTT).  Check the Azure Portal that this is the case.  The structure should look as follows.
+Exporting as **Pascal VOC**:
+
+![VoTT export](assets/vott_export.png)
+
+Your output in the cloud will have one folder with three subfolders in the new Storage container (the connection name used with VoTT).  Check the Azure Portal that this is the case.  
+
+![Check storage](assets/check_storage_portal.png)
+
+The structure should look similiar to the following, but with your name for the project (there may be other files present in the output Storage container along with this folder).
 
 ```
 /ProjectName-PascalVOC-export
@@ -130,6 +138,8 @@ Your output will have one folder with three subfolders in a new Storage containe
 ```
 
 The annotations and images in this Storage container will then be used in the training script (mounted by Azure ML as a Data Store).
+
+> Note:  to get back to the "Cloud Project" in VoTT, simply open VoTT 2, select "Open Cloud Project" and select the "target" connection or output connection and the `.vott` file.
 
 ## Use driver Python script to train a model in the cloud
 
@@ -143,12 +153,14 @@ SUBSCRIPTION_ID=<Subscription ID>
 WORKSPACE_NAME=<Azure ML Workspace Name>
 ```
 
-Define the class names in a file called `custom_classes.txt` and place it in the `project` folder, each class on a separate line, as in the following 2 class file.
+Define the class names in a file called `custom_classes.txt` and place it in the `project` folder, each class on a separate line, as in the following 2 class file example.
 
 ```
-helmet
-no_helmet
+object
+no_object
 ```
+
+Set new Storage credentials and target container, otherwise the driver script will be pointing to the wrong Blob Storage container.  This time we will use the container with the labeled data.  Go through the process as was done above in [Upload images or video to Storage](#upload-images-or-video-to-storage), except change `STORAGE_CONTAINER_NAME_TRAINDATA` to the **container name with the _labeled_ data**.  Then read in those variables as is normally done for your OS.
 
 The training script, `project/train_azureml.py` does the following.
 
@@ -172,7 +184,7 @@ The driver script, `azureml_driver.py`, wrapping the training process, does the 
 To train the model with Azure ML run the driver, as in the following example.
 
 ```unix
-python azureml_driver.py --experiment-name legov1 --gpu-num 1 --class-path custom_classes.txt --data-dir Test-Lego-PascalVOC-export --num-clusters 6
+python azureml_driver.py --experiment-name carsv1 --gpu-num 1 --class-path custom_classes.txt --data-dir Traffic-PascalVOC-export --num-clusters 9 --ds-name trafficstore --bs 8
 ```
 
 For help on using this script (as with the other scripts), run with `-h`.

@@ -1,2 +1,2 @@
-helmet
-no_helmet
+car
+trailer_truck

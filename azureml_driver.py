@@ -62,7 +62,7 @@ def main(args):
 
     # # Use an AML Data Store for training data
     ds = Datastore.register_azure_blob_container(workspace=ws, 
-        datastore_name='azuremlinput', 
+        datastore_name=args.datastore_name, 
         container_name=os.getenv('STORAGE_CONTAINER_NAME_TRAINDATA', ''),
         account_name=os.getenv('STORAGE_ACCOUNT_NAME', ''), 
         account_key=os.getenv('STORAGE_ACCOUNT_KEY', ''),
@@ -77,7 +77,9 @@ def main(args):
         '--data_dir': args.data_dir,
         '--gpu_num': args.gpu_num,
         '--class_path': args.class_path,
-        '--num_clusters': args.num_clusters
+        '--num_clusters': args.num_clusters,
+        '--batch_size': args.batch_size,
+        '--learning_rate': args.learning_rate
         }
 
     # Instantiate PyTorch estimator with upload of final model to
@@ -119,17 +121,17 @@ if __name__ == '__main__':
     # Command line options
     parser.add_argument(
         '--experiment-name', type=str, dest='experiment_name',
-        help='A name for Azure ML experiment'
+        help='A name for Azure ML experiment.'
     )
 
     parser.add_argument(
         '--gpu-num', type=int, dest='gpu_num', default=1,
-        help='Number of GPU to use'
+        help='Number of GPU to use; default is 1.'
     )
 
     parser.add_argument(
         '--class-path', type=str, dest='class_path',
-        help='Text file with class names one per line'
+        help='Text file with class names one per line.'
     )
 
     parser.add_argument(
@@ -140,6 +142,21 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num-clusters', type=str, dest='num_clusters', default=9,
         help='Number of anchor boxes; 9 for full size YOLO and 6 for tiny YOLO; default is 9.'
+    )
+
+    parser.add_argument(
+        '--ds-name', type=str, dest='datastore_name',
+        help='Name of the Azure ML datastore.'
+    )
+
+    parser.add_argument(
+        '--bs', type=str, dest='batch_size',
+        help='Batch size (minibatch size for training).'
+    )
+
+    parser.add_argument(
+        '--lr', type=str, dest='learning_rate',
+        help='Learning rate.'
     )
 
     args = parser.parse_args()
