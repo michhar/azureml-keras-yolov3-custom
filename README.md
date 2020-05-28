@@ -81,7 +81,13 @@ python register_local_model.py --model-size full
 
 ## Upload images or video to Storage
 
-Define some local environment variables as follows so that the script running on the compute target knows about the Azure Storage Account for the data.
+You will need the Python Azure Blob Storage package for this step installed locally or wherever you run the following Python script.  Install as follows.
+
+```unix
+pip install azure-storage-blob==12.3.1
+```
+
+Define local environment variables as follows so that the upload script sends data to the right Azure Storage Account and container (this is going to be one single folder with all of the images to label - it will serve as input to the labeling process in the next step).
 
 **Windows**
 
@@ -103,12 +109,11 @@ export STORAGE_ACCOUNT_NAME=<Storage account name>
 export STORAGE_ACCOUNT_KEY=<Storage account key>
 ```
 
-Run the .cmd or shell script to set the environment variables in the current terminal window.
+Run the `setenvs.cmd` or `setenvs.sh` script to set the environment variables in the current terminal window.
 
+Create a folder of images to be labeled, locally, and place all images in this folder.  Upload that folder to Azure Blob Storage and a specific container with the following script.
 
-Create a folder of images to be labeled, locally, and place all images in this folder.  Upload that folder to Azure Blob Storage with the following script.
-
-If the images are in the `data` folder, for example, the script would be run as follows.
+If the images are in the `data` folder, for example, the script would be run as follows in the same terminal window in which the environment variables were set.
 
 ```unix
 python upload_to_blob.py --dir data
@@ -122,11 +127,11 @@ Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to downl
 
 Exporting as **Pascal VOC**:
 
-![VoTT export](assets/vott_export.png)
+<img src="assets/vott_export.png" width="75%">
 
 Your output in the cloud will have one folder with three subfolders in the new Storage container (the connection name used with VoTT).  Check the Azure Portal that this is the case.  
 
-![Check storage](assets/check_storage_portal.png)
+<img src="assets/check_storage_portal.png" width="75%">
 
 The structure should look similiar to the following, but with your name for the project (there may be other files present in the output Storage container along with this folder).
 
