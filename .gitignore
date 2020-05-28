@@ -1,10 +1,7 @@
-*.jpg
 *.weights
 *.h5
 logs/
 *_test.py
-*.JPG
-*.jpeg
 *.15
 *.xml
 _list*

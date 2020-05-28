@@ -9,7 +9,7 @@ This work is based on:
 
 YOLO stands for "you only look once" and is an efficient algorithm for object detection.  The following image is showing the results from a trained car detector.
 
-<img src="assets/car_id.jpg" width="75%" alignment="center">
+<img src="assets/detection_res.jpg" width="75%" alignment="center">
 
 Important papers on YOLO:
 
