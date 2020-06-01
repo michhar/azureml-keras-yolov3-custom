@@ -42,6 +42,12 @@ This implementation of YOLOv3 (Tensorflow backend) was inspired by [allanzelener
 
 The driver script automatically calculates the optimal sizes for the anchor boxes and updates a config file for YOLOv3.  It also uses the config file to convert a pretrained Darknet model to Keras format for the custom number of classes.
 
+## Prerequisites
+
+1. <a href="https://azure.microsoft.com/en-us/account/" target="_blank">Azure Subscription (free trial link in upper, right corner)</a>
+2. <a href="https://docs.anaconda.com/anaconda/install/" target="_blank">Python 3.6+ installed with pip</a>
+3. <a href="https://github.com/microsoft/VoTT" target="_blank">Visual Object Tagging Tool</a>
+
 ---
 
 ## Provision required resources in Azure
@@ -123,7 +129,9 @@ python upload_to_blob.py --dir data
 
 VoTT is the labeling tool that will be used locally to label data that is stored in the cloud and will write the labels directly back to a cloud store using a SAS string for REST authentication.  The tool imports from and exports directly to Azure Blob Storage containers specified while using the tool with no need to download data for labeling.  The images to label should exist already in a private Blob Storage container (the data from the previous step above).
 
-Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.  The Readme on the project page has excellent instructions on connecting to Blob Storage.
+Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.  The Readme on the project page has excellent instructions.  
+
+> Caution:  A word of caution in using VoTT v2.1.0 - if adding data to the input Storage container/connection to label some more images, make sure to keep the **same** output container/connection for the labels, otherwise the old labels may not transfer over.  Also, ensure not to delete any files in the output storage container as it may interfere with current labeling (labels may disappear).
 
 Exporting as **Pascal VOC**:
 
@@ -144,7 +152,7 @@ The structure should look similiar to the following, but with your name for the 
 
 The annotations and images in this Storage container will then be used in the training script (mounted by Azure ML as a Data Store).
 
-> Note:  to get back to the "Cloud Project" in VoTT, simply open VoTT 2, select "Open Cloud Project" and select the "target" connection or output connection and the `.vott` file.
+> Note:  to get back to the "Cloud Project" in VoTT, simply open VoTT 2, select "Open Cloud Project" and select the "target" connection or output connection and the `.vott` file (this is stored in Blob Storage).
 
 ## Use driver Python script to train a model in the cloud
 
@@ -165,7 +173,7 @@ object
 no_object
 ```
 
-Set new Storage credentials and target container, otherwise the driver script will be pointing to the wrong Blob Storage container.  This time we will use the container with the labeled data.  Go through the process as was done above in [Upload images or video to Storage](#upload-images-or-video-to-storage), except change `STORAGE_CONTAINER_NAME_TRAINDATA` to the **container name with the _labeled_ data**.  Then read in those variables as is normally done for your OS.
+IMPORTANT:  Set new Storage credentials and target container, otherwise the driver script will be pointing to the wrong Blob Storage container.  This time we will use the container with the labeled data.  Go through the process as was done above in [Upload images or video to Storage](#upload-images-or-video-to-storage), except change `STORAGE_CONTAINER_NAME_TRAINDATA` to the **container name with the _labeled_ data**.  Then, read in those variables as is normally done for your OS.
 
 The training script, `project/train_azureml.py` does the following.
 
@@ -238,6 +246,10 @@ Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors 
 * [Azure Machine Learning documentation](https://docs.microsoft.com/en-us/azure/machine-learning/)
 * [Building Powerful Image Classfication Models Using very Little Data](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) 
 ---
+
+## Troubleshooting
+
+1. Driver script issue:  `utils.py", line 81, in kmeans    assert False` - this means there's very likely an issue with your DataStore.  Check the DataStore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
 
 ## Some issues to know
 
