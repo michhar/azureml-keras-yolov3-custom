@@ -47,17 +47,18 @@ The driver script automatically calculates the optimal sizes for the anchor boxe
 1. <a href="https://azure.microsoft.com/en-us/account/" target="_blank">Azure Subscription (free trial link in upper, right corner)</a>
 2. <a href="https://docs.anaconda.com/anaconda/install/" target="_blank">Python 3.6+ installed with pip</a>
 3. <a href="https://github.com/microsoft/VoTT" target="_blank">Visual Object Tagging Tool</a>
-
+4. <a href="https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest" target="_blank">Azure CLI</a>
 ---
 
 ## Provision required resources in Azure
 
-1. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-manage-workspace" target="_blank">Create an Azure ML Workspace</a>
+1. Log in to Azure with the Azure CLI using your Azure credentials (this will be interactive/browser) - `az login`
+2. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-manage-workspace" target="_blank">Create an Azure ML Workspace</a>
   - Download the `config.json` from the Azure ML Workspace in the Azure Portal and place in the `project/.azureml` folder.  When using this file, interative authentication will need to happen (vs. through a Service Principal).
 
-2. <a href="https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal" target="_blank">Create an Azure Storage Account</a>
+3. <a href="https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal" target="_blank">Create an Azure Storage Account</a>
 
-3. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication#set-up-service-principal-authentication" target="_blank">Create a Service Principal</a>.
+4. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication#set-up-service-principal-authentication" target="_blank">Create a Service Principal</a>.
   - A Service Principal is the recommeded way for an unattended script or production system to authenticate with Azure ML for accessing a Workspace.
 
 ## Install prerequisite libraries

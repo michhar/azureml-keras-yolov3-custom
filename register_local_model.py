@@ -7,9 +7,10 @@ from azureml.core import Workspace
 from azureml.core.model import Model
 
 import os
+import argparse
 
 
-def main():
+def main(args):
 
     # Used downloaded Workspace configuratin file to authenticate
     # interactively
