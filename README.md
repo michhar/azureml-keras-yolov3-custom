@@ -63,7 +63,7 @@ The driver script automatically calculates the optimal sizes for the anchor boxe
 
 ## Install prerequisite libraries
 
-Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).
+Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).  It is **strongly recommended** to use a virtual environment for this project as very specific versions of packages are used (<a href="https://docs.python.org/3/library/venv.html" target="_blank">Python virtual environments</a>).
 
 ```unix
 pip install azureml-sdk==1.5.0
@@ -88,7 +88,9 @@ python register_local_model.py --model-size full
 
 ## Upload images or video to Storage
 
-You will need the Python Azure Blob Storage package for this step installed locally or wherever you run the following Python script.  Install as follows.
+You will need the Python Azure Blob Storage package for this step installed locally or wherever you run the following Python script.  Install as follows.  
+
+> Note the version number, here (you may have to uninstall `azure-storage-blob` if already installed).
 
 ```unix
 pip install azure-storage-blob==12.3.1
@@ -101,9 +103,11 @@ Define local environment variables as follows so that the upload script sends da
 Create a `setenvs.cmd` file with the following:
 
 ```unix
-set STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for trained data>
+set STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw image data before labeling>
+set STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for labeled data for training with Azure ML>
 set STORAGE_ACCOUNT_NAME=<Storage account name>
 set STORAGE_ACCOUNT_KEY=<Storage account key>
+set AZURE_STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
 ```
 
 **Linux/MacOS**
@@ -111,9 +115,11 @@ set STORAGE_ACCOUNT_KEY=<Storage account key>
 Create a `setenvs.sh` file with the following:
 
 ```unix
+export STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw image data before labeling>
 export STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for trained data>
 export STORAGE_ACCOUNT_NAME=<Storage account name>
 export STORAGE_ACCOUNT_KEY=<Storage account key>
+export AZURE_STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
 ```
 
 Run the `setenvs.cmd` or `setenvs.sh` script to set the environment variables in the current terminal window.
@@ -173,8 +179,6 @@ Define the class names in a file called `custom_classes.txt` and place it in the
 object
 no_object
 ```
-
-IMPORTANT:  Set new Storage credentials and target container, otherwise the driver script will be pointing to the wrong Blob Storage container.  This time we will use the container with the labeled data.  Go through the process as was done above in [Upload images or video to Storage](#upload-images-or-video-to-storage), except change `STORAGE_CONTAINER_NAME_TRAINDATA` to the **container name with the _labeled_ data**.  Then, read in those variables as is normally done for your OS.
 
 The training script, `project/train_azureml.py` does the following.
 
@@ -250,7 +254,22 @@ Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors 
 
 ## Troubleshooting
 
-1. Driver script issue:  `utils.py", line 81, in kmeans    assert False` - this means there's very likely an issue with your DataStore.  Check the DataStore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
+1. Blob Storage upload issue:
+
+```
+  File "upload_to_blob.py", line 9, in <module>
+    from azure.storage.blob import BlobServiceClient
+ImportError: cannot import name 'BlobServiceClient'
+```
+
+Solve by uninstalling and re-installing the Blob Storage Python package to a more recent version (you may be on a <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python-legacy" target="_blank">legacy version</a>).
+
+```
+pip uninstall azure-storage-blob
+pip install azure-storage-blob==12.3.1
+```
+
+2. Driver script issue:  `utils.py", line 81, in kmeans    assert False` - this means there's very likely an issue with your DataStore.  Check the DataStore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
 
 ## Some issues to know
 
