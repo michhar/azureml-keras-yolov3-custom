@@ -107,7 +107,7 @@ set STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw image d
 set STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for labeled data for training with Azure ML>
 set STORAGE_ACCOUNT_NAME=<Storage account name>
 set STORAGE_ACCOUNT_KEY=<Storage account key>
-set AZURE_STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
+set STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
 ```
 
 **Linux/MacOS**
@@ -119,7 +119,7 @@ export STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw imag
 export STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for trained data>
 export STORAGE_ACCOUNT_NAME=<Storage account name>
 export STORAGE_ACCOUNT_KEY=<Storage account key>
-export AZURE_STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
+export STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
 ```
 
 Run the `setenvs.cmd` or `setenvs.sh` script to set the environment variables in the current terminal window.

@@ -20,7 +20,7 @@ def arg_parse():
 
 args = arg_parse()
 
-CONN_STRING=os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+CONN_STRING=os.getenv("STORAGE_CONNECTION_STRING", "")
 CONTAINER=os.getenv("STORAGE_CONTAINER_NAME_RAWDATA", "")
 
 # Instantiate a BlobServiceClient using a connection string
