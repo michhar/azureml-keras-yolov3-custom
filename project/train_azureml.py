@@ -46,7 +46,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 from dotenv import load_dotenv
 from pathlib import Path  # Python 3.6+ only
-env_path = Path('.') / 'myenvs'
+env_path = Path('.') / 'myenvs.txt'
 load_dotenv(dotenv_path=env_path)
 
 

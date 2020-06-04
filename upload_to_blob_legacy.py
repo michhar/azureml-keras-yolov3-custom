@@ -23,7 +23,7 @@ def arg_parse():
 args = arg_parse()
 
 ACCOUNT=os.getenv("STORAGE_ACCOUNT_NAME", "")
-CONTAINER=os.getenv("STORAGE_CONTAINER_NAME_TRAINDATA", "")
+CONTAINER=os.getenv("STORAGE_CONTAINER_NAME_RAWDATA", "")
 KEY=os.getenv("STORAGE_ACCOUNT_KEY", "")
 
 # Create the BlockBlockService that is used to call the Blob service for the storage account

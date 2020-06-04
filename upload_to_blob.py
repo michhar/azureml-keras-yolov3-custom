@@ -2,7 +2,7 @@
 Upload data to blob storage with latest package version (tested with 12.3.1)
 
 Make sure to set the environment variables before running:
-AZURE_STORAGE_CONNECTION_STRING
+STORAGE_CONNECTION_STRING
 STORAGE_CONTAINER_NAME_TRAINDATA
 """
 import os

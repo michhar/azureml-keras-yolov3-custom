@@ -11,7 +11,7 @@ data_*
 model_data/
 experiment/
 .envs
-myenvs
+myenvs*
 .envs_*
 .DS_Store
 *.mov
