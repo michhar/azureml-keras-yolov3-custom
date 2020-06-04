@@ -51,7 +51,7 @@ The driver script automatically calculates the optimal sizes for the anchor boxe
 4. <a href="https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest" target="_blank">Azure CLI</a>
 ---
 
-## Sytem setup
+## System setup
 
 The user's host machine (or VM if using one) for development (Windows, macOS, Linux) is refered to as the "local" or "dev" machine.  The machine or compute that trains the Azure ML models is refered to as the "target compute".  There is also the idea of the deployment machine.  For Azure ML this can be a local machine, Azure VM, Azure Container Instance, Azure Kubernetes Cluster, etc. (many more deployment target options).
 
@@ -69,11 +69,11 @@ In this repo, we have the local and the target machine setups.  The different se
 
 4. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication#set-up-service-principal-authentication" target="_blank">Create a Service Principal</a>.
     - A Service Principal is the recommeded way for an unattended script or production system to authenticate with Azure ML for accessing a Workspace.
-    - IMPORTANT: if you already have a Service Principal that you wish to use, you will still need to link it to your Azure ML Workspace with the instructions in the link above.
+    - IMPORTANT: if you already have a Service Principal that you wish to use, you will still need to associate it with your Azure ML Workspace with the instructions in the link above.
 
 ## Install prerequisite libraries
 
-Create a <a href="https://docs.python.org/3/library/venv.html" target="_blank">Python virtual environments</a>.
+Create a <a href="https://docs.python.org/3/library/venv.html" target="_blank">Python virtual environment</a>.
 
 Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).  It is **strongly recommended** to use a virtual environment for this project as very specific versions of packages are used and it makes debugging a local setup easier.
 
@@ -297,7 +297,10 @@ pip uninstall azure-storage-blob
 pip install azure-storage-blob==12.3.1
 ```
 
-2. Driver script issue:  `utils.py", line 81, in kmeans    assert False` - this means there's very likely an issue with your DataStore.  Check the DataStore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
+2. Driver script issue:  `utils.py", line 81, in kmeans    assert False` - this could mean:
+
+    - There's an issue with your Datastore.  Check the Datastore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
+    - There are images in the Datastore that are not tagged.  Go back to the VoTT tool, label the untagged images or set the project to export only tagged images (under Export Settings) and run the export again.
 
 ## Some issues to know
 
