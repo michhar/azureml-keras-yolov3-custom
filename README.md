@@ -250,7 +250,7 @@ Change directory into `project`.
 
 In addition to other arguments, use `--image`
 
-Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors project/custom_anchors.txt --classes_path project/custom_classes.txt --image`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --image`
 
 ### Inference on video from a webcam
 
@@ -258,13 +258,13 @@ Note:  on linux `video0` is usually the built-in camera (if this exists) and a U
 
 In addition to other arguments, use `--input <video device id>`
 
-Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors project/custom_anchors.txt --classes_path project/custom_classes.txt --input 0`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --input 0`
 
 ### Inference on video file and output to a video file
 
 In addition to other arguments, use `--input <video file name> --output xyz.mov`
 
-Example:  `python yolo_video.py --model_path trained_weights_final.h5 --anchors project/custom_anchors.txt --classes_path project/custom_classes.txt --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
 
 ## Deploying the solution to the cloud and edge
 
@@ -301,6 +301,32 @@ pip install azure-storage-blob==12.3.1
 
     - There's an issue with your Datastore.  Check the Datastore in the Portal under your Azure ML Workspace to make sure it's pointing to the correct Blob Storage account and container.  Then, check the Blob Storage container to ensure it has the `--data-dir` that you specified when running the driver script (e.g. `Traffic-PascalVOC-export`) at the base level of the container.  You may need to define environment variables for driver script to locate these resources.  See, [Use driver Python script to train a model in the cloud](#use-driver-python-script-to-train-a-model-in-the-cloud) and "important" note.
     - There are images in the Datastore that are not tagged.  Go back to the VoTT tool, label the untagged images or set the project to export only tagged images (under Export Settings) and run the export again.
+    - The folder structure for the labeled data in Azure Storage is not correct.  The folder structure should be as follows (note VoTT adds a prefix sometimes to the xml and jpg files like "data%2F").
+    ```
+    \your_container_name
+      \Your_VoTT_Projec_tName-PascalVOC-export
+        \Annotations
+          data_image01.xml
+          data_image02.xml
+          data_image03.xml
+          ...
+      \ImageSets
+        \Main
+          object1_train.txt
+          object1_val.txt
+          object2_train.txt
+          object2_val.txt
+          ...
+      \JPEGImages
+        data_image01.jpg
+        data_image02.jpg
+        data_image03.jpg
+        ...
+      pascal_label_map.pbtxt
+    ```
+    Here is a screenshot of the Annotations folder:
+    <img src="assets/annotations_folder.png" width="50%">
+
 
 ## Some issues to know
 
