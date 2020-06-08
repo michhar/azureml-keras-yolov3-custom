@@ -10,9 +10,8 @@ data/
 data_*
 model_data/
 experiment/
-.envs
+.envs*
 myenvs*
-.envs_*
 .DS_Store
 *.mov
 *.MOV

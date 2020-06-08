@@ -156,21 +156,29 @@ python upload_to_blob.py --dir data
 
 VoTT is the labeling tool that will be used locally to label data that is stored in the cloud and will write the labels directly back to a cloud store using a SAS token for REST authentication.  The tool imports from and exports directly to Azure Blob Storage containers specified while using the tool with no need to download data for labeling.  The images to label should exist already in a private Blob Storage container (the data from the previous step above).
 
-Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases">link to download</a>) labeling tool to create and label bounding boxes and export to **Pascal VOC**.  The Readme on the project page has good instructions.
+Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases" target="_blank">link to download</a>) labeling tool to create and label bounding boxes and export.  The Readme on the project page has good instructions, but the following should help clarify a few points.
 
-Important:  For the "SAS" or shared access signature, create this in the Azure Portal in the Storage Account under the "Shared access signature" blade.  Create it to expire whenever you wish and to have an allowed resource type of at least "Container" level.  Ensure with VoTT you use the "SAS token" from this creation step in the Azure Portal.  The SAS token for VoTT connection should begin with a `?`.
+The Source Connection and Target Connection from and to Blob Storage containers will use a SAS token for authentication.  Create the "SAS" or shared access signature in the Azure Portal in the Storage Account under the "Shared access signature" blade and set the permissions for "Service", "Container" _and_ "Object".
 
-> Caution:  A word of caution in using VoTT v2.1.0 - if adding data to the input Storage container/connection to label some more images, make sure to keep the **same** output container/connection for the labels, otherwise the old labels may not transfer over.  Also, ensure not to delete any files in the output storage container as it may interfere with current labeling (labels may disappear).
+<img src="assets/sas_permissions.png" width="50%">
 
-Exporting as **Pascal VOC**:
+Create it to expire whenever it makes sense for your scenario.
 
-<img src="assets/vott_export.png" width="75%">
+For VoTT connection use the "SAS token" from the Azure Portal (it should start with a `?`).
+
+<img src="assets/vott_blob_conn.png" width="50%">
+
+> **Caution**:  A word of caution in using VoTT v2.1.0 - if adding data to the input Storage container/connection to label some more images, make sure to keep the **same** output container/connection for the labels, otherwise the old labels may not transfer over.  Also, ensure not to delete any files in the output storage container as it may interfere with current labeling (labels may disappear).  **Important**:  there will be one `something-asset.json` file per image in the base of the Blob Storage container containing the saved labels for VoTT.  Do not delete any of these files, otherwise when opening the project again, the labels will be gone.
+
+Once you are done labeling, go to the Export settings and select **Pascal VOC**.  Then use the export button at the top of the app to export to the VoTT Target Connection defined earlier.
+
+<img src="assets/vott_export.png" width="50%">
 
 Your output in the cloud will have one folder with three subfolders in the new Storage container (the connection name used with VoTT).  Check the Azure Portal that this is the case.  
 
-<img src="assets/check_storage_portal.png" width="75%">
+<img src="assets/check_storage_portal.png" width="50%">
 
-The structure should look similiar to the following, but with your name for the project (there may be other files present in the output Storage container along with this folder).
+The structure should look similiar to the following, but with your name for the project (there will be many other files present, `something-asset.json` files, in the output Storage container along with this folder).
 
 ```
 /ProjectName-PascalVOC-export
@@ -181,7 +189,11 @@ The structure should look similiar to the following, but with your name for the 
 
 The annotations and images in this Storage container will then be used in the training script (mounted by Azure ML as a Data Store).
 
-> Note:  to get back to the "Cloud Project" in VoTT, simply open VoTT 2, select "Open Cloud Project" and select the "target" connection or output connection and the `.vott` file (this is stored in Blob Storage).
+> **Important**:  It is good to check the "access level" in the Azure Portal of the exported images and labels, the Blob Storage container used in the connection - ensure it has "Private" access level if you do not wish the data to be Public.  To change, navigate to the container and select "Change access level".
+
+<img src="assets/container_access_level.png" width="50%">
+
+Finally, to get back to the "Cloud Project" in VoTT, simply open VoTT 2, select "Open Cloud Project" and select the "target" connection or output connection and the `.vott` file (this is stored in Blob Storage container).
 
 ## Use driver Python script to train a model in the cloud
 
@@ -223,10 +235,10 @@ The driver script, `azureml_driver.py`, wrapping the training process, does the 
 
 Ensure the Azure Storage environment variables are still set in the current terminal.  See [Upload images or video to Storage](#upload-images-or-video-to-storage) section to set these again if needed.
 
-To train the model with Azure ML run the driver, as in the following example.
+To train the model with Azure ML run the driver, as in the following example (all arguments are required).
 
 ```unix
-python azureml_driver.py --experiment-name carsv1 --gpu-num 1 --class-path custom_classes.txt --data-dir Traffic-PascalVOC-export --num-clusters 9 --ds-name trafficstore --bs 8
+python azureml_driver.py --experiment-name carsv1 --gpu-num 1 --class-path custom_classes.txt --data-dir Traffic-PascalVOC-export --num-clusters 9 --ds-name trafficstore --bs 4 --lr 0.001
 ```
 
 For help on using this script (as with the other scripts), run with `-h`.
@@ -290,7 +302,7 @@ Instructions on using deployment files in this repo are coming soon.
 ImportError: cannot import name 'BlobServiceClient'
 ```
 
-Solve by uninstalling and re-installing the Blob Storage Python package to a more recent version (you may be on a <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python-legacy" target="_blank">legacy version</a>).
+Solve this by uninstalling and re-installing the Blob Storage Python package to a more recent version (you may be on a <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python-legacy" target="_blank">legacy version</a>).
 
 ```
 pip uninstall azure-storage-blob
@@ -324,8 +336,18 @@ pip install azure-storage-blob==12.3.1
         ...
       pascal_label_map.pbtxt
     ```
-    Here is a screenshot of the Annotations folder:
+    Here is a screenshot of the Annotations folder<br>:
     <img src="assets/annotations_folder.png" width="50%">
+
+3.  If there is a `ResourceExhaustedError` with a message such as follows in the `70_driver_log.txt`, then this means the GPU on the compute target ran out of GPU memory for the CUDA code/tensors.
+
+```
+"error": {
+    "code": "UserError",
+    "message": "User program failed with ResourceExhaustedError: OOM when allocating tensor with shape[8,38,38,512] and type float on /job:localhost/replica:0/task:0/device:GPU:0 by allocator GPU_0_bfc\n\t [[{{node conv2d_66/convolution}}]]\nHint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info.\n\n\t [[{{node loss/add_74}}]]\nHint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info.\n",
+```
+
+ Solve this by decreasing the batch size when running the driver script, `azureml_driver.py`.  This would be setting the batch size argument `--bs` to a smaller value (2 instead of 4 for instance).
 
 
 ## Some issues to know

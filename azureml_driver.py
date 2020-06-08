@@ -150,12 +150,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--bs', type=str, dest='batch_size',
+        '--bs', type=str, dest='batch_size', default=4,
         help='Batch size (minibatch size for training).'
     )
 
     parser.add_argument(
-        '--lr', type=str, dest='learning_rate',
+        '--lr', type=str, dest='learning_rate', default=0.001,
         help='Learning rate.'
     )
 
