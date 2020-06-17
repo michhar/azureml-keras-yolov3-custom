@@ -254,6 +254,8 @@ Navigate to the Azure ML Workspace in the Azure Portal and go to the Experiment 
 - Model (`trained_weights_final.h5`)
 - `custom_anchors.txt`
 
+Place these two files in the `project` folder so our inference script in the next step can find them.
+
 ## Perform local inference on images or video
 
 ### Inference on an image
@@ -262,7 +264,7 @@ Change directory into `project`.
 
 In addition to other arguments, use `--image`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --image`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --image`
 
 ### Inference on video from a webcam
 
@@ -270,13 +272,13 @@ Note:  on linux `video0` is usually the built-in camera (if this exists) and a U
 
 In addition to other arguments, use `--input <video device id>`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --input 0`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --input 0`
 
 ### Inference on video file and output to a video file
 
 In addition to other arguments, use `--input <video file name> --output xyz.mov`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path project/custom_anchors.txt --classes-path project/custom_classes.txt --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
 
 ## Deploying the solution to the cloud and edge
 
