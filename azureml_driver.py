@@ -82,8 +82,7 @@ def main(args):
         '--learning_rate': args.learning_rate
         }
 
-    # Instantiate PyTorch estimator with upload of final model to
-    # a specified blob storage container (this can be anything)
+    # Instantiate TensorFlow estimator to call training script
     estimator = TensorFlow(source_directory=project_folder,
                         script_params=script_params,
                         compute_target=compute_target,
