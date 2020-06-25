@@ -135,7 +135,7 @@ class YOLO(object):
             score = out_scores[i]
 
             # TODO parameterize
-            if score > 0.0:
+            if score > self.score:
                 label = '{} {:.2f}'.format(predicted_class, score)
                 draw = ImageDraw.Draw(image)
                 label_size = draw.textsize(label, font)

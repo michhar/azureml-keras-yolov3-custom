@@ -17,6 +17,7 @@ myenvs*
 *.MOV
 *.mp4
 *.wmv
+*.mpg
 *.zip
 *tmp*
 

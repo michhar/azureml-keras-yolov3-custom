@@ -258,13 +258,15 @@ Place these two files in the `project` folder so our inference script in the nex
 
 ## Perform local inference on images or video
 
+To understand how to perform inference with the script, change directory into the `project` folder and run:  `python yolo_video.py -h` to see the help and argument options.  You can perform inference on single images, live video feed or a recorded video.  Output can be a labeled image, labeled streaming video or a labeled video output file.
+
 ### Inference on an image
 
 Change directory into `project`.
 
 In addition to other arguments, use `--image`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --image`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --conf 0.5 --image`
 
 ### Inference on video from a webcam
 
@@ -272,13 +274,13 @@ Note:  on linux `video0` is usually the built-in camera (if this exists) and a U
 
 In addition to other arguments, use `--input <video device id>`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --input 0`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --conf 0.5 --input 0`
 
 ### Inference on video file and output to a video file
 
 In addition to other arguments, use `--input <video file name> --output xyz.mov`
 
-Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
+Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --conf 0.5 --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
 
 ## Deploying the solution to the cloud and edge
 
@@ -351,6 +353,14 @@ pip install azure-storage-blob==12.3.1
 
  Solve this by decreasing the batch size when running the driver script, `azureml_driver.py`.  This would be setting the batch size argument `--bs` to a smaller value (2 instead of 4 for instance).
 
+
+## Extra notes
+
+Recording video on Mac OS for testing example.  From the command line with `ffmpeg` program (need to install first):
+
+`ffmpeg -f avfoundation -framerate 30 -i "0" -r 30  video.mpg`
+
+Where `-r` is framerate and `-i` is the camera input (0 is builtin camera on Mac OS).
 
 ## Some issues to know
 

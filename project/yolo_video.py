@@ -63,6 +63,11 @@ if __name__ == '__main__':
         help = "[Optional] Video output path"
     )
 
+    parser.add_argument(
+        "--conf", type=float, default=0.3, dest="score",
+        help="[Optional] Confidence score"
+    )
+
     FLAGS = parser.parse_args()
 
     if FLAGS.image:
