@@ -282,9 +282,43 @@ In addition to other arguments, use `--input <video file name> --output xyz.mov`
 
 Example:  `python yolo_video.py --model-path trained_weights_final.h5 --anchors-path custom_anchors.txt --classes-path custom_classes.txt --conf 0.5 --input <path to video>/some_street_traffic.mov --output some_street_traffic_with_bboxes.mov`
 
-## Deploying the solution to the cloud and edge
+## Deploying the solution locally and in the cloud
 
-Instructions on using deployment files in this repo are coming soon.
+Steps are as follows.  Ensure you are logged in to the Azure CLI with your Azure credentials and have selected the correct subscription.  At any time for help with script, use:  `python <scriptname>.py --help`.
+
+1.  If the model is not yet registered to the workspace, download the model.
+
+You will need to register it from your local environment to the Azure ML workspace.  Use the following script as in (e.g.):
+
+Example:  `python register_local_model_custom.py --model-local ep045-loss12.620.h5  --model-workspace carsv1-2class-tiny-yolov3.h5 --description "Tuned tiny YOLO v3 Keras model for car-truck 2-class object detection trained on Bing search images.  From carsv1 experiment, Run 1."`
+
+Note:  description must not exceed 200 characters and model name in Workspace (`--model-workspace` argument above) must not exceed 32 characters.
+
+2.  Download `custom_anchors.txt` from the Outputs tab in the Run and place in the `deploy` folder in this repo.
+3.  Place a class labels file called `custom_classes.txt` in to the `deploy` folder (this has the class names one per line and order matters, here).
+4.  Change line 20 of `score.py` in the `deploy` folder to use the Workspace name of model and correct version number. (e.g. `model_root = Model.get_model_path('carsv1-2class-tiny-yolov3.h5', version=1)`)
+
+> Note:  it is a good idea to test a deployment locally first so we will do that, now.
+
+5.  Perform a local test deployment (if you have docker locally and are able to run without elevated priviledges).  This will build a scoring/inferencing image (actually built and stored in the cloud, pulling in the cloud registered model) and then run as a container locally using your local docker program.
+
+Example:  `python deploy_to_local.py --model-workspace cars_2class_tiny_yolov3.h5 --service-name cars-service-local`
+
+  * Record the location of the local webservice (you will add on `/score` to make the scoring url.)
+
+6.  Test the local deployment.  Set an environment variable `SCORING_URI` to the scoring URL (webservice location with `/score` at the end) before running.  Use `--image` to specify a test image to use.
+
+Example:  `python test_service.py --image car_test1.jpg`
+
+7.  Perform a cloud test deployment with an Azure Container Instance.
+
+> Note:  for production deployments in the cloud, it is recommeded to use Azure Kubernetes Service for managed scale.
+
+Example:  `python deploy_to_aci.py --service-name cars-service-aci --model-workspace cars_2class_tiny_yolov3.h5 --description "Cars ACI service - tiny Keras YOLO v3 model"`
+
+8.  Test the cloud deployment in the same way as the local deployment, but use the cloud scoring URI as the `SCORING_URI`, and since we set `auth_enabled=True` in the deployment configuration.  We will also need a local environment variable `WEBSERVICE_KEY`.  Get the scoring URI and key in the Azure Portal under the Azure ML Workspace and Deployments.
+
+Example:  `python test_service.py --image car_test1.jpg`
 
 ## Credits
 

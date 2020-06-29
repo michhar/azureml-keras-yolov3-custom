@@ -21,6 +21,9 @@ myenvs*
 *.zip
 *tmp*
 
+# Dump of serialized image, ignore this
+request.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

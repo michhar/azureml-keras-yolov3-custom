@@ -11,7 +11,7 @@ dependencies:
 - python=3.6.2
 
 - pip:
-  - azureml-defaults==1.0.62.*
+  - azureml-defaults==1.5.0
   - tensorflow==1.13.1
   - keras==2.2.4
   - matplotlib==3.1.1

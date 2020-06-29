@@ -1,5 +1,9 @@
 """
 Use Python requests to call web service
+
+Set an environment variable SCORING_URI to the scoring URL before running and
+set environment variable WEBSERVICE_KEY to the webservice key if in the cloud (omit
+if testing a local service).
 """
 import requests
 from requests.exceptions import HTTPError
@@ -36,7 +40,7 @@ def get_service(ws, name):
 def main(img_file):
     """Call Azure ML webservice, sending image and returning inference results"""
 
-    scoring_uri = os.getenv('SCORING_URI')
+    scoring_uri = os.getenv('SCORING_URI', '')
 
     # Construction input data json string
     # input_data = plt.imread(img_file)
@@ -49,7 +53,7 @@ def main(img_file):
     with open('request.txt', 'w') as f:
         f.write(new_image_string)
 
-    headers = {'Content-Type':'application/json'}#, 'Authorization': 'Bearer ' + os.getenv('WEBSERVICE_KEY')}
+    headers = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + os.getenv('WEBSERVICE_KEY', '')}
 
     try:
 
@@ -65,6 +69,7 @@ def main(img_file):
         print(f'Other error occurred: {err}')
     else:
         print('Success!')
+        print(resp.text)
 
 if __name__ == "__main__":
     args = arg_parse()

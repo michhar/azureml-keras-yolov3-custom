@@ -6,7 +6,6 @@ import json
 import numpy as np
 import os
 from PIL import Image
-from keras.models import model_from_json
 import base64
 from io import BytesIO
 
@@ -17,11 +16,12 @@ from yolo import YOLO
 def init():
     global yolo
 
-    model_root = Model.get_model_path('mixdata_trained_weights.h5')
+    # Replace with your model name in the Azure ML Workspace
+    model_root = Model.get_model_path('hardhat_2class_tiny_yolov3.h5', version=1)
 
     yolo = YOLO(model_path=os.path.join(model_root),
-                anchors_path=os.path.join(os.getcwd(), 'deploy/gun_custom_anchors.txt'),
-                classes_path=os.path.join(os.getcwd(), 'deploy/gun_custom_classes.txt'))
+                anchors_path=os.path.join(os.getcwd(), 'deploy/custom_anchors.txt'),
+                classes_path=os.path.join(os.getcwd(), 'deploy/custom_classes.txt'))
     
 def run(raw_data):
     data = Image.open(BytesIO(base64.b64decode(json.loads(raw_data)['data'])))
