@@ -8,6 +8,7 @@ from keras.applications.resnet50 import preprocess_input
 import onnxruntime
 import numpy as np
 import argparse
+from timeit import default_timer as timer
 
 
 def main(args):
@@ -23,7 +24,11 @@ def main(args):
     sess = onnxruntime.InferenceSession(args.model_local)
     x = x if isinstance(x, list) else [x]
     feed = dict([(input.name, x[n]) for n, input in enumerate(sess.get_inputs())])
+    start = timer()
     pred_onnx = sess.run(None, feed)
+    end = timer()
+    print('{} seconds for inference with ONNX runtime'.format((end-start)))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -123,7 +123,10 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
+        end = timer()
+
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
+        print('FPS {} for inference'.format(1./(end-start)))
 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
@@ -163,8 +166,6 @@ class YOLO(object):
                 draw.text(text_origin, label, fill=(0, 0, 0), font=font)
                 del draw
 
-        end = timer()
-        print(end - start)
         return image
 
     def close_session(self):
