@@ -302,7 +302,7 @@ Note:  description must not exceed 200 characters and model name in Workspace (`
 
 5.  Perform a local test deployment (if you have docker locally and are able to run without elevated priviledges).  This will build a scoring/inferencing image (actually built and stored in the cloud, pulling in the cloud registered model) and then run as a container locally using your local docker program.
 
-Example:  `python deploy_to_local.py --model-workspace cars_2class_tiny_yolov3.h5 --service-name cars-service-local`
+Example:  `python deploy_to_local.py --model-workspace carsv1-2class-tiny-yolov3.h5 --service-name cars-service-local`
 
   * Record the location of the local webservice (you will add on `/score` to make the scoring url.)
 
@@ -314,15 +314,32 @@ Example:  `python test_service.py --image car_test1.jpg`
 
 > Note:  for production deployments in the cloud, it is recommeded to use Azure Kubernetes Service for managed scale.
 
-Example:  `python deploy_to_aci.py --service-name cars-service-aci --model-workspace cars_2class_tiny_yolov3.h5 --description "Cars ACI service - tiny Keras YOLO v3 model"`
+Example:  `python deploy_to_aci.py --service-name cars-service-aci --model-workspace carsv1-2class-tiny-yolov3.h5 --description "Cars ACI service - tiny Keras YOLO v3 model"`
 
 8.  Test the cloud deployment in the same way as the local deployment, but use the cloud scoring URI as the `SCORING_URI`, and since we set `auth_enabled=True` in the deployment configuration.  We will also need a local environment variable `WEBSERVICE_KEY`.  Get the scoring URI and key in the Azure Portal under the Azure ML Workspace and Deployments.
 
 Example:  `python test_service.py --image car_test1.jpg`
 
+## Convert to ONNX format
+
+For use in the ONNX runtime () we can convert from Keras to ONNX format with a script `deploy/convert_keras2onnx.py`.  As before, use `--help` to get the argument list.
+
+Ensure you have the following libraries and versions:
+
+```
+tensorflow==1.15.2
+keras==2.2.4
+keras2onnx==1.7.0
+onnx==1.6.0
+```
+
+This example converts a custom 2-class, tiny YOLO v3 model to ONNX format.
+
+Example:  `python convert_keras2onnx.py --model-local carsv1-2class-tiny-yolov3.h5 --class-path custom_classes.txt --anchor-path custom_anchors.txt --name carsv1-2class-tiny-yolov3.onnx --num-clusters 6`
+
 ## Credits
 
-* Based on https://github.com/qqwweee/keras-yolo3
+* All YOLO v3 code based on https://github.com/qqwweee/keras-yolo3 project.
 
 ## References
 
