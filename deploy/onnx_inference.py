@@ -1,38 +1,53 @@
 """
 ONNX inference test to ensure model loads and performs inference.
-Returns bounding identified boxes.  WIP.
+Prints bounding boxes, classes and saves results as image overlay.
 """
 from keras.preprocessing import image
 from keras import backend as K
-from PIL import Image
 import tensorflow as tf
-import cv2
-import onnxruntime
-import numpy as np
-import argparse
-from timeit import default_timer as timer
 import onnx
+import onnxruntime
+from PIL import Image, ImageDraw, ImageFont
+import cv2
+import numpy as np
+import os
+import colorsys
+from timeit import default_timer as timer
+import argparse
 
 
 def main(args):
     """
-    Prints bounding boxes and class.
+    Discovers bounding boxes and class.  Overlays boxes
+    on original image and saves to same folder.
 
     Arguments
-    ---
+    ---------
     args : dict
-        args.image
-        args.model_size
-        args.model_local
+        Contents:
+        args.image - image path on disk
+        args.model_local - model path on disk
+        args.classes_path - classes file on disk
+        args.anchors_path - anchors file on disk
+        args.conf - confidence score threshold
     """
+    # Class names and anchors from file paths
+    class_names = get_class(args.classes_path)
+    anchors = get_anchors(args.anchors_path)
+    
+    if len(anchors) == 6:
+        model_size = 416 # tiny
+    elif len(anchors) == 9:
+        model_size = 608
+    else:
+        print('Number of anchors is incorrect.  Please check the anchor file.')
+        assert False
+
     # Image preprocessing
-    img_path = args.image   # manpe sure the image is in img_path
-    # TODO: check model size w/ assert statement
-    img_size = args.model_size
-    # img = image.load_img(img_path, target_size=(img_size, img_size))
-    img = Image.open(img_path)
-    orig_size = img.size
-    img = img.resize((img_size, img_size))
+    img_path = args.image   # TODO:  make sure the image is in img_path
+    image = Image.open(img_path)
+    orig_w, orig_h = image.size # PIL is (width, height)
+    img = image.resize((model_size, model_size))
     x = np.array(img, dtype='float32')
     x /= 255.
     x = np.expand_dims(x, 0)
@@ -49,27 +64,97 @@ def main(args):
     feed = dict([(input.name, x[n]) for n, input in enumerate(sess.get_inputs())])
     start = timer()
     outputs = sess.run(None, feed)
-    end = timer()
-    print('{} seconds for inference with ONNX runtime'.format((end-start)))
 
-    # Process ONNX model output (output conv layers)
-    boxes, scores, classes = yolo_eval(outputs, 
-                # TODO: read in an anchor file instead of hardcoding for test
-                anchors=np.array([[36,41], [62,73], [93,105], [135,156], [212,232], [379,433]]),
-                num_classes=2, 
-                image_shape=[416, 416],
-                score_threshold=0.5,
+    # Post-process ONNX model output (output conv layers)
+    out_boxes, out_scores, out_classes = yolo_eval(outputs, 
+                anchors=anchors,
+                num_classes=len(class_names), 
+                image_shape=[model_size, model_size],
+                score_threshold=args.score,
                 iou_threshold=0.3)
 
     # Tensor to float and print
-    # TODO:  process box - such that relative to original image size
-    boxes = K.eval(boxes)
-    scores = K.eval(scores)
-    classes = K.eval(classes)
-    for i, c in enumerate(classes):
-        score = scores[i]
-        box = boxes[i]
-        print(box, ' ', c)
+    out_boxes = K.eval(out_boxes)
+    out_scores = K.eval(out_scores)
+    out_classes = K.eval(out_classes)
+
+    end = timer()
+    print('{} seconds for inference with ONNX runtime'.format((end-start)))
+
+    # Resize to original dimensions
+    out_boxes[:,[0,2]] *= orig_h // model_size
+    out_boxes[:,[1,3]] *= orig_w // model_size
+
+    # Print
+    for i, c in enumerate(out_classes):
+        score = out_scores[i]
+        box = out_boxes[i]
+        print(box, ' ', class_names[c])
+
+    # Formatting
+    thickness = (image.size[0] + image.size[1]) // 300
+    font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
+                    size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+    # Generate colors for drawing bounding boxes.
+    hsv_tuples = [(x / len(class_names), 1., 1.)
+                    for x in range(len(class_names))]
+    colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
+    colors = list(
+        map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)),
+            colors))
+    np.random.shuffle(colors)  # Shuffle colors to decorrelate adjacent classes.
+
+    for i, c in reversed(list(enumerate(out_classes))):
+        predicted_class = class_names[c]
+        box = out_boxes[i]
+        score = out_scores[i]
+
+        if score > args.score:
+            label = '{} {:.2f}'.format(predicted_class, score)
+            draw = ImageDraw.Draw(image)
+            label_size = draw.textsize(label, font)
+
+            top, left, bottom, right = box
+            top = max(0, np.floor(top + 0.5).astype('int32'))
+            left = max(0, np.floor(left + 0.5).astype('int32'))
+            bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
+            right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
+            print(label, (left, top), (right, bottom))
+
+            if top - label_size[1] >= 0:
+                text_origin = np.array([left, top - label_size[1]])
+            else:
+                text_origin = np.array([left, top + 1])
+
+            # My kingdom for a good redistributable image drawing library.
+            for i in range(thickness):
+                draw.rectangle(
+                    [left + i, top + i, right - i, bottom - i],
+                    outline=colors[c])
+            draw.rectangle(
+                [tuple(text_origin), tuple(text_origin + label_size)],
+                fill=colors[c])
+            draw.text(text_origin, label, fill=(0, 0, 0), font=font)
+            del draw
+
+    # Save image w/ bbox
+    suffix = '.'+img_path.split('.')[-1]
+    save_path = image.save(img_path.replace(suffix, '_onnx_out.'+suffix))
+    image.show()
+
+def get_class(classes_path):
+    classes_path = os.path.expanduser(classes_path)
+    with open(classes_path) as f:
+        class_names = f.readlines()
+    class_names = [c.strip() for c in class_names]
+    return class_names
+
+def get_anchors(anchors_path):
+    anchors_path = os.path.expanduser(anchors_path)
+    with open(anchors_path) as f:
+        anchors = f.readline()
+    anchors = [float(x) for x in anchors.split(',')]
+    return np.array(anchors).reshape(-1, 2)
 
 def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     """Convert final layer features to bounding box parameters."""
@@ -190,10 +275,16 @@ if __name__ == "__main__":
         help='The path to a test image.'
     )
     parser.add_argument(
-        '--model-size', type=int, dest='model_size',
-        help='The model input size, either 416 or 608.  \
-            The tiny version is 416 and full-size is 608.'
+        '--anchors-path', type=str, dest='anchors_path',
+        help='File path to anchor definitions'
     )
-
+    parser.add_argument(
+        '--classes-path', type=str, dest='classes_path',
+        help='File path to class definitions'
+    )
+    parser.add_argument(
+        '--conf', type=float, default=0.3, dest='score',
+        help='[Optional] Confidence score'
+    )
     args = parser.parse_args()
     main(args)
