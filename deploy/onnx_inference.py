@@ -45,11 +45,14 @@ def main(args):
 
     # Image preprocessing
     img_path = args.image   # TODO:  make sure the image is in img_path
-    image = Image.open(img_path)
-    orig_w, orig_h = image.size # PIL is (width, height)
-    img = image.resize((model_size, model_size))
+    # image = Image.open(img_path)
+    img = cv2.imread(img_path) # read as numpy
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    orig_h, orig_w = img.shape[:2] # PIL is (width, height)
     x = np.array(img, dtype='float32')
     x /= 255.
+    x, pad = pad_image(x) # use when the model has been trained on padded data
+    x = cv2.resize(x, dsize=((model_size, model_size)), interpolation=cv2.INTER_CUBIC)
     x = np.expand_dims(x, 0)
 
     # Check model
@@ -81,20 +84,25 @@ def main(args):
     end = timer()
     print('{} seconds for inference with ONNX runtime'.format((end-start)))
 
+    ## Subtract padding offset
+    if orig_h < orig_w:
+        out_boxes[:,[0,2]] -= pad*(model_size/orig_w) / 2.
+    elif orig_h > orig_w:
+        out_boxes[:,[1,3]] -= pad*(model_size/orig_h) / 2.
+    else:
+        pass # square image
+    out_boxes = np.clip(out_boxes, 0.0, model_size)
     # Resize to original dimensions
     out_boxes[:,[0,2]] *= orig_h // model_size
     out_boxes[:,[1,3]] *= orig_w // model_size
-
-    # Print
-    for i, c in enumerate(out_classes):
-        score = out_scores[i]
-        box = out_boxes[i]
-        print(box, ' ', class_names[c])
+    
+    # Read in as PIL format
+    pil_image = Image.open(img_path)
 
     # Formatting
-    thickness = (image.size[0] + image.size[1]) // 300
+    thickness = (pil_image.size[0] + pil_image.size[1]) // 300
     font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
-                    size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+                    size=np.floor(3e-2 * pil_image.size[1] + 0.5).astype('int32'))
     # Generate colors for drawing bounding boxes.
     hsv_tuples = [(x / len(class_names), 1., 1.)
                     for x in range(len(class_names))]
@@ -111,14 +119,14 @@ def main(args):
 
         if score > args.score:
             label = '{} {:.2f}'.format(predicted_class, score)
-            draw = ImageDraw.Draw(image)
+            draw = ImageDraw.Draw(pil_image)
             label_size = draw.textsize(label, font)
 
             top, left, bottom, right = box
             top = max(0, np.floor(top + 0.5).astype('int32'))
             left = max(0, np.floor(left + 0.5).astype('int32'))
-            bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
-            right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
+            bottom = min(pil_image.size[1], np.floor(bottom + 0.5).astype('int32'))
+            right = min(pil_image.size[0], np.floor(right + 0.5).astype('int32'))
             print(label, (left, top), (right, bottom))
 
             if top - label_size[1] >= 0:
@@ -139,8 +147,8 @@ def main(args):
 
     # Save image w/ bbox
     suffix = '.'+img_path.split('.')[-1]
-    save_path = image.save(img_path.replace(suffix, '_onnx_out.'+suffix))
-    image.show()
+    save_path = pil_image.save(img_path.replace(suffix, '_onnx_out.'+suffix))
+    pil_image.show()
 
 def get_class(classes_path):
     classes_path = os.path.expanduser(classes_path)
@@ -155,6 +163,32 @@ def get_anchors(anchors_path):
         anchors = f.readline()
     anchors = [float(x) for x in anchors.split(',')]
     return np.array(anchors).reshape(-1, 2)
+
+def pad_image(np_img):
+    """Use numpy operations to add padding around an image in
+    numpy format (an array of rank 3 - so 3 channels) in order
+    to create a square image.
+    """
+    h, w, c = np_img.shape[0:3]
+    side_len = max(h, w)
+    # Create our square "palette" or area upon which the image data is placed
+    # Make it kinda grey
+    new_np_img = np.ones(side_len * side_len * c, dtype='float32').reshape(side_len, 
+        side_len, c) / 2.0
+
+    if h > w:
+        for i in range(c):
+            old_patch = np_img[:, :, i]
+            pad = (side_len - w)//2
+            new_np_img[:, pad:(pad + w), i] = old_patch
+    elif w > h:
+        for i in range(c):
+            old_patch = np_img[:, :, i]
+            pad = (side_len - h)//2
+            new_np_img[pad:(pad + h), :, i] = old_patch
+    else:
+        return np_img, 0
+    return new_np_img, pad
 
 def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     """Convert final layer features to bounding box parameters."""
