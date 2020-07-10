@@ -38,10 +38,11 @@ This implementation of YOLOv3 (Tensorflow backend) was inspired by [allanzelener
 5. Label data with VoTT and export to Storage
 6. Use driver Python script to train a model in the cloud
 7. Download final model
-8. Perform inference on video from camera
+8. Perform inference on video from camera locally
+9. Deploy the solution locally and in the cloud as a REST API
+10. Convert from Keras to ONNX format
 
-
-The driver script automatically calculates the optimal sizes for the anchor boxes and updates a config file for YOLOv3.  It also uses the config file to convert a pretrained Darknet model to Keras format for the custom number of classes.
+> Note:  The training script automatically calculates the optimal sizes for the anchor boxes and updates a config file for YOLOv3.  It also uses the config file to convert a pretrained Darknet model to Keras format for the custom number of classes so the user does not need to perform these manual steps.
 
 ## Prerequisites
 
@@ -49,33 +50,36 @@ The driver script automatically calculates the optimal sizes for the anchor boxe
 2. <a href="https://docs.anaconda.com/anaconda/install/" target="_blank">Python 3.6+ installed with pip</a>
 3. <a href="https://github.com/microsoft/VoTT" target="_blank">Visual Object Tagging Tool</a>
 4. <a href="https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest" target="_blank">Azure CLI</a>
+5. Command prompt or terminal
 ---
 
 ## System setup
 
 The user's host machine (or VM if using one) for development (Windows, macOS, Linux) is refered to as the "local" or "dev" machine.  The machine or compute that trains the Azure ML models is refered to as the "target compute".  There is also the idea of the deployment machine.  For Azure ML this can be a local machine, Azure VM, Azure Container Instance, Azure Kubernetes Cluster, etc. (many more deployment target options).
 
-In this repo, we have the local and the target machine setups.  The different setups are shown in the diagram below.  There are environment variables and Python packages that differ on each setup.  For example, Azure Storage related environment variables are set on the local or user dev machine.
+In this repo, we have the local and the target machine setups.  The different setups are shown in the diagram below.  There are environment variables and Python packages that differ on each setup.  For example, Azure Storage related environment variables are set on the local or user dev machine and used through the command prompt or terminal.
 
 <img src="assets/AzureMLKerasSetup.jpg" width="75%">
 
+> IMPORTANT:  If on Windows please use a the terminal window or command prompt rather than PowerShell window for all the the subsequent commands.
+
 ## Provision required resources in Azure
 
-1. Log in to Azure with the Azure CLI using your Azure credentials (this will be interactive/browser) - `az login`
-2. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-manage-workspace" target="_blank">Create an Azure ML Workspace</a>
-  - Download the `config.json` from the Azure ML Workspace in the Azure Portal and place in the `project/.azureml` folder.  When using this file, interative authentication will need to happen (vs. through a Service Principal).
+1. Log in to Azure with the Azure CLI using your Azure credentials on the command line (this will also involve an interactive browser experience) - `az login` (additionally, you may need to switch in to the appropriate subscription with `az account set --subscription <subscription id>`)
+2. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-manage-workspace" target="_blank">Create an Azure ML Workspace</a> (this sample will work with both Basic and Enterprise)
+  - Download the `config.json` from the Azure ML Workspace in the Azure Portal and place in the `project/.azureml` folder.  When using this file, interactive authentication will need to happen (vs. through a Service Principal).
 
 3. <a href="https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-portal" target="_blank">Create an Azure Storage Account</a>
 
 4. <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication#set-up-service-principal-authentication" target="_blank">Create a Service Principal</a>.
     - A Service Principal is the recommeded way for an unattended script or production system to authenticate with Azure ML for accessing a Workspace.
-    - IMPORTANT: if you already have a Service Principal that you wish to use, you will still need to associate it with your Azure ML Workspace with the instructions in the link above.
+> IMPORTANT: if you already have a Service Principal that you wish to use, you will still need to associate it with your Azure ML Workspace with the instructions in the link above.
 
 ## Install prerequisite libraries
 
-Create a <a href="https://docs.python.org/3/library/venv.html" target="_blank">Python virtual environment</a>.
+Create a <a href="https://docs.python.org/3/library/venv.html" target="_blank">Python virtual environment</a> or <a href="https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html" target="_blank">Anaconda environment</a> for this project (highly recommended).
 
-Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).  It is **strongly recommended** to use a virtual environment for this project as very specific versions of packages are used and it makes debugging a local setup easier.
+Use the Python package manager to install the Azure ML SDK.  Ensure using the intended `pip` (sometimes it's `pip3`).  It is **strongly recommended** to use a virtual environment or conda environment for this project as very specific versions of packages are used and it makes debugging a local setup easier.
 
 ```unix
 pip install azureml-sdk==1.5.0
@@ -83,7 +87,7 @@ pip install azureml-sdk==1.5.0
 
 You will also need the Python Azure Blob Storage package installed locally or wherever you run the raw data uploading Python script.
 
-> Note the version number, here (you may have to uninstall `azure-storage-blob` if already installed).
+> Note:  take note the version number, here (you may have to uninstall `azure-storage-blob` if an older version is already installed).
 
 ```unix
 pip install azure-storage-blob==12.3.1
@@ -93,16 +97,16 @@ pip install azure-storage-blob==12.3.1
 
 Download either the full-sized YOLO v3 or the tiny version.
 
-Download full-sized YOLOv3 here:  https://pjreddie.com/media/files/yolov3.weights
+Download full-sized YOLOv3 here: https://pjreddie.com/media/files/yolov3.weights.
 
-Or, on Linux:  `wget https://pjreddie.com/media/files/yolov3.weights`
+Or download the tiny YOLOv3 here: https://pjreddie.com/media/files/yolov3-tiny.weights.
 
-> If the tiny version of the weights are needed, download this file, instead:  https://pjreddie.com/media/files/yolov3-tiny.weights
+Then, place the model in the base folder of the cloned repository.
 
 Run the following script to register the YOLO model to the Azure ML Workspace in the cloud (it uploads it in the background as well).  `--model-size` should be either `full` or `tiny`.
 
 ```unix
-python register_local_model.py --model-size full
+python register_local_model_base.py --model-size tiny
 ```
 
 
@@ -112,21 +116,21 @@ Define local environment variables as follows so that the upload script sends da
 
 **Windows**
 
-Create a `setenvs.cmd` file with the following (do not include the `<>` characters).
+Create a `setenvs.cmd` file with the following (do not include the `<>` characters) and use the command prompt instead of PowerShell for the `set` command to work.
 
 ```unix
 set STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw image data before labeling>
 set STORAGE_CONTAINER_NAME_TRAINDATA=<Blob container name for labeled data for training with Azure ML>
 set STORAGE_ACCOUNT_NAME=<Storage account name>
 set STORAGE_ACCOUNT_KEY=<Storage account key>
-set STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
+set STORAGE_CONNECTION_STRING=<Storage account connection string for the upload script>
 ```
 
 Run this `setenvs.cmd` on the command line in Windows and use the same terminal to run subsequent scripts.  Alternatively, each "set" command can be run on the command line separately - just make sure to use the same terminal window later on.
 
 **Linux/MacOS**
 
-Create a `.setenvs` file (or use any name) with the following (do not include the `<>` characters).
+Create a `.setenvs` file (or use any name) with the following (do not include the `<>` characters; on unix the STORAGE_CONNECTION_STRING does need the quotation marks due to special characters).
 
 ```unix
 export STORAGE_CONTAINER_NAME_RAWDATA=<Blob container name to store the raw image data before labeling>
@@ -136,7 +140,7 @@ export STORAGE_ACCOUNT_KEY=<Storage account key>
 export STORAGE_CONNECTION_STRING="<Storage account connection string for the upload script>"
 ```
 
-Set these environment variables in the terminal window with `source .setenvs` command.  Make sure to use the same terminal window later on for running subsequent scripts.
+Set these environment variables in the terminal window with the command:  `source .setenvs`.  Make sure to use the same terminal window later on for running subsequent scripts.
 
 Check that the environment variables were set correctly in Unix environments with the following command.
 
@@ -150,15 +154,17 @@ If the images are in the `data` folder, for example, the script would be run as 
 python upload_to_blob.py --dir data
 ```
 
-> Note:  the default access level is "Private (no anonymous access)" and can be changed with the SDK, as well as, in the Azure Portal by navigating to the contaniner within the Storage account and selecting "Change access level".
+> Note:  the default access level is "Private (no anonymous access)" and can be changed with the SDK, as well as, in the Azure Portal by navigating to the container within the Storage account and selecting "Change access level".
 
 ## Label data with VoTT and export to Storage
 
-VoTT is the labeling tool that will be used locally to label data that is stored in the cloud and will write the labels directly back to a cloud store using a SAS token for REST authentication.  The tool imports from and exports directly to Azure Blob Storage containers specified while using the tool with no need to download data for labeling.  The images to label should exist already in a private Blob Storage container (the data from the previous step above).
+VoTT is the labeling tool that will be used locally to label data that is stored in the cloud and will write the labels directly back to a cloud store using a SAS token for REST authentication.  The tool imports from and exports directly to Azure Blob Storage containers specified while using the tool with no need to download data for labeling.  The raw images to label should exist already in a private Blob Storage container (the data from the previous step above).  
 
-Use the VoTT (<a href="https://github.com/microsoft/VoTT/releases" target="_blank">link to download</a>) labeling tool to create and label bounding boxes and export.  The Readme on the project page has good instructions, but the following should help clarify a few points.
+> Note:  The raw image container will form the "Source Connection" and a new container in that Storage Account will form the "Target Connection." 
 
-The Source Connection and Target Connection from and to Blob Storage containers will use a SAS token for authentication.  Create the "SAS" or shared access signature in the Azure Portal in the Storage Account under the "Shared access signature" blade and set the permissions for "Service", "Container" _and_ "Object".
+Use VoTT 2 (<a href="https://github.com/microsoft/VoTT/releases" target="_blank">link to download</a>) labeling tool to create and label bounding boxes and export.  The Readme on the project page has good instructions, but the following should help clarify a few points.
+
+The Source Connection and Target Connection (associated with two different containers) from and to Blob Storage will use a SAS token for authentication.  Create the "SAS" or shared access signature in the Azure Portal in the Storage Account under the "Shared access signature" blade and set the permissions for "Service", "Container" _and_ "Object".
 
 <img src="assets/sas_permissions.png" width="50%">
 
@@ -168,7 +174,9 @@ For VoTT connection use the "SAS token" from the Azure Portal (it should start w
 
 <img src="assets/vott_blob_conn.png" width="50%">
 
-> **Caution**:  A word of caution in using VoTT v2.1.0 - if adding data to the input Storage container/connection to label some more images, make sure to keep the **same** output container/connection for the labels, otherwise the old labels may not transfer over.  Also, ensure not to delete any files in the output storage container as it may interfere with current labeling (labels may disappear).  **Important**:  there will be one `something-asset.json` file per image in the base of the Blob Storage container containing the saved labels for VoTT.  Do not delete any of these files, otherwise when opening the project again, the labels will be gone.
+> IMPORTANT:  A word of caution in using VoTT v2.1.0 - if adding more raw data to the input Storage container/connection to label some more images, make sure to keep the **same** output container/connection for the labels, otherwise the old labels may not transfer over.  Also, ensure not to delete any files in the output storage container as it would interfere with current labeling (labels may disappear).  
+
+There will be one `<random guid>-asset.json` file per image in the base of the Blob Storage container (target connection) containing the saved labels for VoTT.  Do not delete any of these files, otherwise when opening the project again, the labels will have been removed in the UI, as well, and can not be recovered.
 
 Once you are done labeling, go to the Export settings and select **Pascal VOC**.  Then use the export button at the top of the app to export to the VoTT Target Connection defined earlier.
 
@@ -189,7 +197,7 @@ The structure should look similiar to the following, but with your name for the 
 
 The annotations and images in this Storage container will then be used in the training script (mounted by Azure ML as a Data Store).
 
-> **Important**:  It is good to check the "access level" in the Azure Portal of the exported images and labels, the Blob Storage container used in the connection - ensure it has "Private" access level if you do not wish the data to be Public.  To change, navigate to the container and select "Change access level".
+> IMPORTANT:  It is good to check the "access level" in the Azure Portal of the exported images and labels, the Blob Storage container used in the connection - ensure it has "Private" access level if you do not wish the data to be Public.  To change, navigate to the container and select "Change access level".
 
 <img src="assets/container_access_level.png" width="50%">
 
@@ -238,7 +246,7 @@ Ensure the Azure Storage environment variables are still set in the current term
 To train the model with Azure ML run the driver, as in the following example (all arguments are required).
 
 ```unix
-python azureml_driver.py --experiment-name carsv1 --gpu-num 1 --class-path custom_classes.txt --data-dir Traffic-PascalVOC-export --num-clusters 9 --ds-name trafficstore --bs 4 --lr 0.001
+python azureml_driver.py --experiment-name carsv1 --gpu-num 1 --class-path custom_classes.txt --data-dir Traffic-PascalVOC-export --num-clusters 6 --ds-name trafficstore --bs 4 --lr 0.001
 ```
 
 For help on using this script (as with the other scripts), run with `-h`.
@@ -339,7 +347,7 @@ Example:  `python convert_keras2onnx.py --model-local carsv1-2class-tiny-yolov3.
 
 Next, we can test the inferencing process with the ONNX runtime (ensure conversion worked correctly) and benchmark seconds per inference event as in the example below, where `--image` is your own image.
 
-Example:  `python onnx_inference.py --model-local carsv1-2class-tiny-yolov3.h5 --image cars_and_trucks.jpg`
+Example:  `python onnx_inference.py --model-local carsv1-2class-tiny-yolov3.h5 --anchors-path custom_anchorst.txt --classes-path custom_classes.txt --conf 0.5 --image cars_and_trucks.jpg`
 
 ## Kudos
 
@@ -412,6 +420,7 @@ pip install azure-storage-blob==12.3.1
 
  Solve this by decreasing the batch size when running the driver script, `azureml_driver.py`.  This would be setting the batch size argument `--bs` to a smaller value (2 instead of 4 for instance).
 
+4. If, when running `azureml_driver.py`, registering the datastore (line 69) results in `azureml._restclient.models.error_response.ErrorResponseException: (StorageAuthError) Forbidden. Please make sure you have permission to access the resource.`, then follow the instructions at <a href="https://docs.microsoft.com/en-us/azure/machine-learning/how-to-change-storage-access-key" target="_blank">Regenerate storage account access keys</a> to re-register the datastore with updated Storage keys.
 
 ## Extra notes
 
