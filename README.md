@@ -343,7 +343,7 @@ onnx==1.6.0
 
 This example converts a custom 2-class, tiny YOLO v3 model to ONNX format (change `--num-clusters` to 9 for full-sized YOLO v3 model).
 
-Example:  `python convert_keras2onnx.py --model-local carsv1-2class-tiny-yolov3.h5 --class-path custom_classes.txt --anchor-path custom_anchors.txt --name carsv1-2class-tiny-yolov3.onnx --num-clusters 6`
+Example:  `python convert_keras2onnx.py --model-local carsv1-2class-tiny-yolov3.h5 --classes-path custom_classes.txt --anchors-path custom_anchors.txt --name carsv1-2class-tiny-yolov3.onnx --num-clusters 6`
 
 Next, we can test the inferencing process with the ONNX runtime (ensure conversion worked correctly) and benchmark seconds per inference event as in the example below, where `--image` is your own image.
 

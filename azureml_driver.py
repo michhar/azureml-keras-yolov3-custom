@@ -22,7 +22,7 @@ def main(args):
 
     # Define workspace object
     try:    
-        ws = Workspace.from_config(path='./project/.azureml/config.json')
+        ws = Workspace.from_config(path='config.json')
     # Need to create the workspace
     except Exception as err:
         print('No workspace.  Check for config.json file.')

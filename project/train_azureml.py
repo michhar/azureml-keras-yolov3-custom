@@ -203,7 +203,7 @@ def main(gpu_num, class_path, data_dir, data_path, num_clusters, batch_size, lea
             validation_steps=max(1, num_val//batch_size),
             epochs=60,
             initial_epoch=30,
-            callbacks=[logging, checkpoint, early_stopping, reduce_lr, LogRunMetrics()])
+            callbacks=[logging, early_stopping, reduce_lr, LogRunMetrics()])
         model.save_weights(log_dir + 'trained_weights_final.h5')
         # Save architecture, too
         with open(log_dir + 'trained_weights_final.json', 'w') as f:

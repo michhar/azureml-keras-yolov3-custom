@@ -79,11 +79,11 @@ if __name__ == "__main__":
         help='The path to the local model.'
     )
     parser.add_argument(
-        '--class-path', type=str, dest='class_path',
+        '--classes-path', type=str, dest='class_path',
         help='Text file with class names one per line.'
     )
     parser.add_argument(
-        '--anchor-path', type=str, dest='anchor_path',
+        '--anchors-path', type=str, dest='anchor_path',
         help='Text file with anchor box sizes.'
     )
     parser.add_argument(
