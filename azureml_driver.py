@@ -158,6 +158,11 @@ if __name__ == '__main__':
         help='Learning rate.'
     )
 
+    parser.add_argument(
+        '--epochs', type=str, dest='epochs', default=30,
+        help='Number of epochs for first pass/fine-tuning (the same number is used for second pass to get final model)'
+    )
+
     args = parser.parse_args()
 
     main(args)

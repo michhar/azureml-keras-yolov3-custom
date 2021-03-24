@@ -177,7 +177,10 @@ def detect_video(yolo, video_path="1", output_path=""):
     #   sometimes string e.g. "video0" on linux
     if video_path.isdigit():
         video_path = int(video_path)
-    vid = cv2.VideoCapture(video_path)
+    try:
+        vid = cv2.VideoCapture(video_path)
+    except Exception as err:
+        print(err)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
     video_FourCC = cv2.VideoWriter_fourcc(*'XVID')
